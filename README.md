@@ -72,10 +72,10 @@ GENERATE_DEEP_NOTE=true                    # 是否生成 Deep Note
 
 ## 🚀 使用方法
 
-### 基本用法
+### 基本用法（推荐使用新版本）
 
 ```bash
-python batch_read_deepxiv_with_pdf.py
+python main.py
 ```
 
 这将：
@@ -85,13 +85,21 @@ python batch_read_deepxiv_with_pdf.py
 4. 并行生成 Card 和 Deep Note
 5. 生成综合调研报告
 
+**新版本特性：**
+- ✅ 实时进度条显示
+- ✅ 详细的日志记录（`logs/paper_agent.log`）
+- ✅ 自动重试失败的 API 调用
+- ✅ 更好的错误提示
+
+**兼容性：** 旧版本 `batch_read_deepxiv_with_pdf.py` 仍然保留，可以继续使用
+
 ### 高级用法
 
 #### 只生成 Card（快速预览）
 
 ```bash
 export GENERATE_DEEP_NOTE=false
-python batch_read_deepxiv_with_pdf.py
+python main.py
 ```
 
 #### 重新生成单个论文
@@ -104,6 +112,16 @@ python regenerate_card_with_figures.py 2602.08145
 
 ```bash
 python batch_regenerate_cards.py
+```
+
+#### 运行测试
+
+```bash
+# 安装测试依赖
+pip install -r requirements-dev.txt
+
+# 运行测试
+pytest tests/ -v
 ```
 
 ## 📊 环境变量详解
@@ -248,6 +266,8 @@ outputs/
 
 ## 📚 文档
 
+- [docs/IMPROVEMENTS.md](./docs/IMPROVEMENTS.md) - **代码改进说明（新）**
+- [docs/MIGRATION.md](./docs/MIGRATION.md) - **迁移指南（新）**
 - [docs/EXAMPLE_OUTPUT.md](./docs/EXAMPLE_OUTPUT.md) - 示例输出展示
 - [docs/SUMMARY.md](./docs/SUMMARY.md) - 完整功能总结
 - [docs/PARALLEL_OPTIMIZATION.md](./docs/PARALLEL_OPTIMIZATION.md) - 并行优化详解
@@ -259,10 +279,47 @@ outputs/
 
 ## 🛠️ 工具脚本
 
-- `batch_read_deepxiv_with_pdf.py` - 主程序
+- `main.py` - **主程序（新版本，推荐）**
+- `batch_read_deepxiv_with_pdf.py` - 主程序（旧版本，保留兼容）
 - `regenerate_card_with_figures.py` - 重新生成单个论文
 - `batch_regenerate_cards.py` - 批量重新生成
 - `fix_figure_links.py` - 使用 vision API 的备用方案
+
+## 🆕 新版本改进
+
+### 高优先级改进（已完成）
+- ✅ **日志系统** - 使用标准 logging 模块，支持文件和控制台输出
+- ✅ **错误处理** - 自动重试机制，指数退避策略
+- ✅ **配置管理** - 类型安全的配置验证
+- ✅ **模块化重构** - 清晰的代码结构，易于维护和扩展
+- ✅ **单元测试** - 40 个测试用例，全部通过
+- ✅ **进度条** - 实时显示处理进度
+- ✅ **文档完善** - 完整的 docstrings 和使用文档
+- ✅ **Markdown Viewer** - Web 界面查看笔记，支持 LaTeX 公式渲染
+- ✅ **LaTeX 美化** - 自动转换和美化 LaTeX 公式格式
+
+详见 [docs/IMPROVEMENTS.md](./docs/IMPROVEMENTS.md)
+
+### 🌐 Markdown Viewer
+
+使用 Web 界面查看生成的笔记：
+
+```bash
+# 启动 Viewer
+python viewer/server.py
+
+# 打开浏览器访问
+# http://localhost:8000/index.html
+```
+
+**功能特性：**
+- 📝 完整的 Markdown 渲染
+- 🔢 LaTeX 公式支持（KaTeX）
+- 🎨 代码语法高亮
+- 🖼️ 图片自动加载
+- 🌙 GitHub 风格暗色主题
+
+详见 [docs/VIEWER_GUIDE.md](./docs/VIEWER_GUIDE.md)
 
 ## 🤝 贡献
 

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Agent - Markdown Viewer</title>
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/es/highlight.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
+            --accent-hover: #1f6feb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+
+        .file-browser {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .folder-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            padding: 8px 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .file-item {
+            padding: 8px 10px 8px 30px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .file-item.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            padding: 15px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toolbar button {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+        }
+
+        .markdown-body {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .markdown-body h1 { font-size: 2em; margin: 24px 0 16px; }
+        .markdown-body h2 { font-size: 1.5em; margin: 24px 0 16px; }
+        .markdown-body p { margin-bottom: 16px; }
+        .markdown-body code {
+            padding: 0.2em 0.4em;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+        }
+        .markdown-body pre {
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .markdown-body img {
+            max-width: 100%;
+            border-radius: 6px;
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>📚 Paper Agent</h1>
+                <p>Markdown Viewer</p>
+            </div>
+            <div class="file-browser" id="fileBrowser">
+                <div>Loading files...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="toolbar">
+                <button onclick="refreshFiles()">🔄 Refresh</button>
+                <div id="filePath">Select a file</div>
+            </div>
+            <div class="content-area">
+                <div class="markdown-body" id="markdownContent">
+                    <h2>Welcome to Paper Agent Viewer</h2>
+                    <p>Select a markdown file from the sidebar.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFileStructure();
+        });
+
+        async function loadFileStructure() {
+            try {
+                const response = await fetch('/api/files');
+                const files = await response.json();
+                renderFileTree(files);
+            } catch (error) {
+                const browser = document.getElementById('fileBrowser');
+                browser.textContent = 'Failed to load files. Run: python viewer/server.py';
+            }
+        }
+
+        function renderFileTree(files) {
+            const browser = document.getElementById('fileBrowser');
+            browser.textContent = '';
+
+            const folders = {
+                'cards': { title: '📝 Cards', files: [] },
+                'deep_notes': { title: '📖 Notes', files: [] },
+                'reports': { title: '📊 Reports', files: [] }
+            };
+
+            files.forEach(file => {
+                const parts = file.path.split('/');
+                const folder = parts[parts.length - 2];
+                if (folders[folder]) {
+                    folders[folder].files.push(file);
+                }
+            });
+
+            Object.entries(folders).forEach(([key, folder]) => {
+                if (folder.files.length === 0) return;
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'folder-title';
+                titleDiv.textContent = `${folder.title} (${folder.files.length})`;
+                browser.appendChild(titleDiv);
+
+                folder.files.forEach(file => {
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'file-item';
+                    fileDiv.textContent = file.name;
+                    fileDiv.onclick = () => loadMarkdownFile(file.path, fileDiv);
+                    browser.appendChild(fileDiv);
+                });
+            });
+        }
+
+        async function loadMarkdownFile(filePath, element) {
+            try {
+                currentFile = filePath;
+                document.getElementById('filePath').textContent = filePath;
+
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                element.classList.add('active');
+
+                const response = await fetch(filePath);
+                const markdown = await response.text();
+                renderMarkdown(markdown);
+            } catch (error) {
+                document.getElementById('markdownContent').textContent = 'Failed to load file';
+            }
+        }
+
+        function renderMarkdown(markdown) {
+            const contentDiv = document.getElementById('markdownContent');
+            // Note: markdown content is from local trusted files
+            const html = marked.parse(markdown);
+            contentDiv.innerHTML = html;
+
+            // Fix image paths: convert relative paths to absolute paths
+            // e.g., ../figures/xxx.png -> /outputs/figures/xxx.png
+            contentDiv.querySelectorAll('img').forEach((img) => {
+                const src = img.getAttribute('src');
+                if (src && src.startsWith('../')) {
+                    // Remove ../ and prepend /outputs/
+                    const newSrc = '/outputs/' + src.replace(/^\.\.\//, '');
+                    img.setAttribute('src', newSrc);
+                }
+            });
+
+            contentDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+
+            renderMathInElement(contentDiv, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+
+        function refreshFiles() {
+            loadFileStructure();
+        }
+    </script>
+</body>
+</html>

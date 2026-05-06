@@ -4,6 +4,8 @@ import time
 import shutil
 import requests
 import fitz  # PyMuPDF
+import tarfile
+import re
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
@@ -35,6 +37,7 @@ DEEP_DIR = OUT_DIR / "deep_notes"
 REPORT_DIR = OUT_DIR / "reports"
 PDF_DIR = OUT_DIR / "pdfs"
 FIGURES_DIR = OUT_DIR / "figures"
+LATEX_DIR = OUT_DIR / "latex_sources"
 LOG_DIR = Path("logs")
 
 CARD_DIR.mkdir(parents=True, exist_ok=True)
@@ -42,10 +45,11 @@ DEEP_DIR.mkdir(parents=True, exist_ok=True)
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 PDF_DIR.mkdir(parents=True, exist_ok=True)
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+LATEX_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def call_llm(prompt: str, temperature: float = 0.2) -> str:
+def call_llm(prompt: str) -> str:
     resp = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
@@ -59,7 +63,6 @@ def call_llm(prompt: str, temperature: float = 0.2) -> str:
             },
             {"role": "user", "content": prompt},
         ],
-        temperature=temperature,
     )
     return resp.choices[0].message.content
 
@@ -72,6 +75,183 @@ def safe_filename(text: str) -> str:
         else:
             keep.append("_")
     return "".join(keep)[:160]
+
+
+def download_latex_source(arxiv_id: str, output_dir: Path) -> Path:
+    """Download LaTeX source from arXiv."""
+    source_url = f"https://arxiv.org/e-print/{arxiv_id}"
+    source_dir = output_dir / safe_filename(arxiv_id)
+
+    if source_dir.exists() and any(source_dir.iterdir()):
+        print(f"[LaTeX source exists] {source_dir}")
+        return source_dir
+
+    source_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        print(f"[Downloading LaTeX source] {source_url}")
+        response = requests.get(source_url, timeout=30)
+        response.raise_for_status()
+
+        # Save as tar.gz
+        tar_path = source_dir / "source.tar.gz"
+        tar_path.write_bytes(response.content)
+
+        # Extract
+        try:
+            with tarfile.open(tar_path, 'r:gz') as tar:
+                tar.extractall(source_dir)
+            tar_path.unlink()  # Remove tar file after extraction
+            print(f"[LaTeX source extracted] {source_dir}")
+            return source_dir
+        except tarfile.ReadError:
+            # Not a tar file, might be a single .tex file
+            tex_path = source_dir / "main.tex"
+            tex_path.write_bytes(response.content)
+            print(f"[LaTeX source saved] {tex_path}")
+            return source_dir
+
+    except Exception as e:
+        print(f"[LaTeX source download error] {arxiv_id}: {e}")
+        return None
+
+
+def extract_figures_from_latex(latex_dir: Path, arxiv_id: str, output_dir: Path, max_figures: int = 8) -> list:
+    """Extract figures from LaTeX source by finding image files referenced in .tex files."""
+    if not latex_dir or not latex_dir.exists():
+        return []
+
+    figures_subdir = output_dir / safe_filename(arxiv_id)
+    figures_subdir.mkdir(parents=True, exist_ok=True)
+
+    extracted_figures = []
+
+    try:
+        # Find all .tex files
+        tex_files = list(latex_dir.rglob("*.tex"))
+        if not tex_files:
+            print(f"[No .tex files found] {latex_dir}")
+            return []
+
+        print(f"[Extracting figures from LaTeX] {len(tex_files)} .tex files")
+
+        # Pattern to match \includegraphics commands
+        # Matches: \includegraphics[options]{filename}
+        include_pattern = re.compile(r'\\includegraphics(?:\[.*?\])?\{([^}]+)\}')
+
+        # Pattern to match \begin{figure}...\caption{...}...\end{figure}
+        figure_pattern = re.compile(
+            r'\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}',
+            re.DOTALL
+        )
+
+        figure_info = []
+
+        for tex_file in tex_files:
+            try:
+                content = tex_file.read_text(encoding='utf-8', errors='ignore')
+
+                # Find all figure environments
+                for fig_match in figure_pattern.finditer(content):
+                    fig_content = fig_match.group(1)
+
+                    # Extract image filename
+                    img_match = include_pattern.search(fig_content)
+                    if not img_match:
+                        continue
+
+                    img_filename = img_match.group(1).strip()
+
+                    # Extract caption if present
+                    caption_match = re.search(r'\\caption\{(.*?)\}', fig_content, re.DOTALL)
+                    caption = caption_match.group(1) if caption_match else ""
+
+                    # Extract label if present
+                    label_match = re.search(r'\\label\{(.*?)\}', fig_content)
+                    label = label_match.group(1) if label_match else ""
+
+                    figure_info.append({
+                        'filename': img_filename,
+                        'caption': caption,
+                        'label': label,
+                        'tex_file': tex_file.name
+                    })
+
+            except Exception as e:
+                print(f"[Error reading {tex_file.name}] {e}")
+                continue
+
+        print(f"[Found {len(figure_info)} figure references in LaTeX]")
+
+        # Now find the actual image files
+        figure_count = 0
+        for idx, fig in enumerate(figure_info):
+            if figure_count >= max_figures:
+                break
+
+            img_filename = fig['filename']
+
+            # Try common image extensions
+            possible_extensions = ['', '.pdf', '.png', '.jpg', '.jpeg', '.eps', '.PDF', '.PNG', '.JPG']
+            img_path = None
+
+            for ext in possible_extensions:
+                # Try with and without extension
+                search_name = img_filename if img_filename.endswith(tuple(possible_extensions[1:])) else img_filename + ext
+
+                # Search in latex_dir and subdirectories
+                matches = list(latex_dir.rglob(search_name))
+                if matches:
+                    img_path = matches[0]
+                    break
+
+            if not img_path or not img_path.exists():
+                print(f"[Image not found] {img_filename}")
+                continue
+
+            try:
+                # Convert to PNG if needed
+                output_filename = f"fig_{figure_count + 1}.png"
+                output_path = figures_subdir / output_filename
+
+                if img_path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
+                    # Copy directly
+                    shutil.copy2(img_path, output_path)
+                elif img_path.suffix.lower() == '.pdf':
+                    # Convert PDF to PNG using PyMuPDF
+                    doc = fitz.open(img_path)
+                    page = doc[0]
+                    mat = fitz.Matrix(2.0, 2.0)  # 2x zoom
+                    pix = page.get_pixmap(matrix=mat)
+                    pix.save(str(output_path))
+                    doc.close()
+                else:
+                    print(f"[Unsupported format] {img_path.suffix}")
+                    continue
+
+                extracted_figures.append({
+                    'path': output_path,
+                    'index': figure_count + 1,
+                    'caption': fig['caption'][:200] if fig['caption'] else "",
+                    'label': fig['label'],
+                    'source_file': img_path.name
+                })
+
+                print(f"[Figure extracted] {output_filename} from {img_path.name}")
+                figure_count += 1
+
+            except Exception as e:
+                print(f"[Figure conversion error] {img_path.name}: {e}")
+                continue
+
+        print(f"[Extracted {len(extracted_figures)} figures from LaTeX] {arxiv_id}")
+
+    except Exception as e:
+        print(f"[LaTeX processing error] {arxiv_id}: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return extracted_figures
 
 
 def download_pdf(arxiv_id: str, output_dir: Path) -> Path:
@@ -358,7 +538,8 @@ def make_10min_card(material: dict, query: str = "", figures: list = None) -> st
         figures_for_section7 = "\n\n**论文提取的图片**（请在分析时引用这些图片）：\n"
         for fig in figures:
             rel_path = Path(fig["path"]).relative_to(CARD_DIR.parent)
-            figures_for_section7 += f"- Figure {fig['index']} (Page {fig['page']}): 图片路径 `{rel_path}`\n"
+            # Fix: use ../ prefix for relative path from cards directory
+            figures_for_section7 += f"- Figure {fig['index']}: 图片路径 `../{rel_path}`\n"
 
     prompt = f"""
 请基于下面的论文材料，生成一份适合我 10 分钟内读完的 paper card。
@@ -427,15 +608,18 @@ def make_30min_note(material: dict, query: str = "", figures: list = None, pdf_p
         figures_info += "> **提示**：以下是从论文中提取的关键图表，结合正文理解效果更佳。\n\n"
         for fig in figures:
             rel_path = Path(fig["path"]).relative_to(DEEP_DIR.parent)
-            figures_info += f"### Figure {fig['index']} (Page {fig['page']})\n\n"
-            figures_info += f"![Figure {fig['index']}]({rel_path})\n\n"
-            figures_info += f"**位置**：第 {fig['page']} 页\n\n"
+            # Fix: use ../ prefix for relative path from deep_notes directory
+            figures_info += f"### Figure {fig['index']}\n\n"
+            figures_info += f"![Figure {fig['index']}](../{rel_path})\n\n"
+            if fig.get('caption'):
+                figures_info += f"**Caption**: {fig['caption']}\n\n"
             figures_info += "---\n\n"
 
     pdf_info = ""
     if pdf_path and pdf_path.exists():
         rel_pdf_path = pdf_path.relative_to(DEEP_DIR.parent)
-        pdf_info = f"\n\n## PDF 文件\n\n[查看完整 PDF]({rel_pdf_path})\n\n"
+        # Fix: use ../ prefix for relative path
+        pdf_info = f"\n\n## PDF 文件\n\n[查看完整 PDF](../{rel_pdf_path})\n\n"
 
     prompt = f"""
 请基于下面的论文材料，生成一份适合我 30 分钟内细读完的 deep reading note。
@@ -550,11 +734,11 @@ def make_survey_report(materials: list[dict], query: str) -> str:
 完整材料（供参考）：
 {json.dumps(materials, ensure_ascii=False, indent=2)[:200000]}
 """
-    return call_llm(prompt, temperature=0.3)
+    return call_llm(prompt)
 
 
-def process_paper(paper_info: dict, total: int, index: int, query: str = "", download_pdf_flag: bool = True, extract_figures_flag: bool = True, generate_deep_note: bool = True) -> dict:
-    """Process a single paper: fetch material, download PDF, extract figures, generate card and deep note."""
+def process_paper(paper_info: dict, total: int, index: int, query: str = "", download_pdf_flag: bool = True, extract_figures_flag: bool = True, generate_deep_note: bool = True, use_latex_source: bool = True) -> dict:
+    """Process a single paper: fetch material, download PDF/LaTeX, extract figures, generate card and deep note."""
     arxiv_id = paper_info.get("arxiv_id") or paper_info.get("id")
     title = paper_info.get("title", "unknown_title")
 
@@ -575,10 +759,21 @@ def process_paper(paper_info: dict, total: int, index: int, query: str = "", dow
         if download_pdf_flag:
             pdf_path = download_pdf(arxiv_id, PDF_DIR)
 
-        # Extract figures
+        # Extract figures - try LaTeX first, fallback to PDF
         figures = []
-        if extract_figures_flag and pdf_path:
-            figures = extract_figures_from_pdf(pdf_path, arxiv_id, FIGURES_DIR, max_figures=5)
+        if extract_figures_flag:
+            if use_latex_source:
+                print(f"[Trying LaTeX source extraction] {arxiv_id}")
+                latex_dir = download_latex_source(arxiv_id, LATEX_DIR)
+                if latex_dir:
+                    figures = extract_figures_from_latex(latex_dir, arxiv_id, FIGURES_DIR, max_figures=8)
+
+                # Fallback to PDF if LaTeX extraction failed
+                if not figures and pdf_path:
+                    print(f"[LaTeX extraction failed, falling back to PDF] {arxiv_id}")
+                    figures = extract_figures_from_pdf(pdf_path, arxiv_id, FIGURES_DIR, max_figures=5)
+            elif pdf_path:
+                figures = extract_figures_from_pdf(pdf_path, arxiv_id, FIGURES_DIR, max_figures=5)
 
         # Generate card
         card = make_10min_card(material, query, figures)
@@ -620,9 +815,10 @@ def main():
     download_pdf_flag = os.environ.get("DOWNLOAD_PDF", "true").lower() == "true"
     extract_figures_flag = os.environ.get("EXTRACT_FIGURES", "true").lower() == "true"
     generate_deep_note_flag = os.environ.get("GENERATE_DEEP_NOTE", "true").lower() == "true"
+    use_latex_source = os.environ.get("USE_LATEX_SOURCE", "true").lower() == "true"
 
     print(f"[Search] query={query}, limit={limit}, date_from={date_from}, categories={categories}")
-    print(f"[Config] max_workers={max_workers}, download_pdf={download_pdf_flag}, extract_figures={extract_figures_flag}, generate_deep_note={generate_deep_note_flag}")
+    print(f"[Config] max_workers={max_workers}, download_pdf={download_pdf_flag}, extract_figures={extract_figures_flag}, generate_deep_note={generate_deep_note_flag}, use_latex_source={use_latex_source}")
 
     results = reader.search(
         query,
@@ -644,7 +840,7 @@ def main():
     processed_results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(process_paper, p, len(papers), i, query, download_pdf_flag, extract_figures_flag, generate_deep_note_flag): i
+            executor.submit(process_paper, p, len(papers), i, query, download_pdf_flag, extract_figures_flag, generate_deep_note_flag, use_latex_source): i
             for i, p in enumerate(papers, start=1)
         }
 
@@ -687,6 +883,7 @@ def main():
     print(f"  - Deep notes: {DEEP_DIR}")
     print(f"  - PDFs: {PDF_DIR}")
     print(f"  - Figures: {FIGURES_DIR}")
+    print(f"  - LaTeX sources: {LATEX_DIR}")
     print(f"  - Reports: {REPORT_DIR}")
 
 
