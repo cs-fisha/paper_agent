@@ -6,7 +6,7 @@ import tarfile
 import requests
 import fitz
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from core.logger import get_logger
 from core.retry import retry_on_exception
 
@@ -206,3 +206,85 @@ class LaTeXProcessor:
             traceback.print_exc()
 
         return extracted_figures
+
+    @staticmethod
+    def extract_figure_contexts(
+        latex_dir: Path,
+        figure_labels: List[str]
+    ) -> Dict[str, List[Dict]]:
+        """
+        Extract contexts where figures are referenced in LaTeX source.
+
+        Args:
+            latex_dir: Directory containing LaTeX source
+            figure_labels: List of figure labels (e.g., ['fig:overview', 'fig:results'])
+
+        Returns:
+            Dictionary mapping label to list of context dictionaries
+        """
+        if not latex_dir or not latex_dir.exists():
+            logger.warning(f"LaTeX directory not found: {latex_dir}")
+            return {}
+
+        contexts = {label: [] for label in figure_labels}
+
+        try:
+            tex_files = list(latex_dir.rglob("*.tex"))
+            if not tex_files:
+                return contexts
+
+            # Patterns for figure references
+            ref_patterns = [
+                re.compile(r'\\ref\{(' + '|'.join(re.escape(l) for l in figure_labels) + r')\}'),
+                re.compile(r'Figure~?\\ref\{(' + '|'.join(re.escape(l) for l in figure_labels) + r')\}', re.IGNORECASE),
+                re.compile(r'Fig\.?~?\\ref\{(' + '|'.join(re.escape(l) for l in figure_labels) + r')\}', re.IGNORECASE),
+            ]
+
+            for tex_file in tex_files:
+                try:
+                    content = tex_file.read_text(encoding='utf-8', errors='ignore')
+
+                    # Remove comments
+                    content = re.sub(r'(?<!\\)%.*$', '', content, flags=re.MULTILINE)
+
+                    # Split into sentences (simple approach)
+                    sentences = re.split(r'(?<=[.!?])\s+', content)
+
+                    for i, sentence in enumerate(sentences):
+                        for pattern in ref_patterns:
+                            matches = pattern.finditer(sentence)
+                            for match in matches:
+                                label = match.group(1)
+                                if label in contexts:
+                                    # Extract context: 2 sentences before and after
+                                    start_idx = max(0, i - 2)
+                                    end_idx = min(len(sentences), i + 3)
+                                    context_text = ' '.join(sentences[start_idx:end_idx])
+
+                                    # Clean up LaTeX commands for readability
+                                    context_text = re.sub(r'\\cite\{[^}]+\}', '[citation]', context_text)
+                                    context_text = re.sub(r'\\[a-zA-Z]+\{([^}]+)\}', r'\1', context_text)
+                                    context_text = re.sub(r'\\[a-zA-Z]+', '', context_text)
+                                    context_text = re.sub(r'\s+', ' ', context_text).strip()
+
+                                    if len(context_text) > 50:  # Meaningful context
+                                        contexts[label].append({
+                                            'text': context_text,
+                                            'file': tex_file.name,
+                                            'sentence_index': i
+                                        })
+
+                except Exception as e:
+                    logger.error(f"Error reading {tex_file.name}: {e}")
+                    continue
+
+            # Log results
+            for label, ctx_list in contexts.items():
+                logger.info(f"Found {len(ctx_list)} contexts for {label}")
+
+        except Exception as e:
+            logger.error(f"Error extracting figure contexts: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return contexts

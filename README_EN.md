@@ -13,6 +13,7 @@ An intelligent paper reading assistant powered by LLM that automatically searche
   - **10min Card**: Quick overview
   - **30min Deep Note**: In-depth analysis
 - 🎯 **Figure Analysis**: Detailed interpretation of each figure
+- 📊 **Figure Context Analysis**: Extract figure references from LaTeX source and generate deep interpretation for each figure (NEW)
 - ⚡ **Parallel Processing**: 70% performance boost
 - 📊 **Survey Report**: Auto-generated after batch processing
 
@@ -50,6 +51,7 @@ MAX_WORKERS=8
 DOWNLOAD_PDF=true
 EXTRACT_FIGURES=true
 GENERATE_DEEP_NOTE=true
+ANALYZE_FIGURES=true  # Generate figure context analysis
 ```
 
 ### 3. Run
@@ -64,6 +66,7 @@ python main.py
 outputs/
 ├── cards/              # 10min Paper Cards
 ├── deep_notes/         # 30min Deep Notes
+├── figure_analysis/    # Figure context analysis (NEW)
 ├── pdfs/              # PDF files
 ├── figures/           # Extracted figures
 │   └── {arxiv_id}/
@@ -96,6 +99,14 @@ outputs/
 - Reproducibility assessment
 - Follow-up suggestions
 
+### Figure Context Analysis (NEW)
+
+For each figure:
+- **Figure Content**: What the figure shows
+- **Author's Intent**: Why the author included this figure
+- **Role in Paper**: How it supports the core argument
+- **Context Analysis**: Analysis based on reference contexts from LaTeX source
+
 ## ⚡ Performance
 
 | Papers | Before | After | Improvement |
@@ -112,12 +123,13 @@ paper_agent/
 │   ├── config.py
 │   ├── paper_processor.py
 │   ├── pdf_processor.py
-│   ├── latex_processor.py
+│   ├── latex_processor.py  # LaTeX processing (with context extraction)
 │   └── ...
 ├── generators/        # Generators
 │   ├── card_generator.py
 │   ├── note_generator.py
-│   └── report_generator.py
+│   ├── report_generator.py
+│   └── figure_analyzer.py  # Figure analyzer (NEW)
 ├── tests/            # Unit tests
 └── main.py           # Main entry
 ```

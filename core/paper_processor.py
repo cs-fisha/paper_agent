@@ -11,6 +11,7 @@ from core.logger import get_logger
 from core.file_utils import safe_filename
 from generators.card_generator import CardGenerator
 from generators.note_generator import NoteGenerator
+from generators.figure_analyzer import FigureAnalyzer
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,7 @@ class PaperProcessor:
         deepxiv_client: DeepXivClient,
         card_generator: CardGenerator,
         note_generator: NoteGenerator,
+        figure_analyzer: Optional[FigureAnalyzer],
         pdf_dir: Path,
         figures_dir: Path,
         latex_dir: Path,
@@ -31,6 +33,7 @@ class PaperProcessor:
         self.deepxiv = deepxiv_client
         self.card_gen = card_generator
         self.note_gen = note_generator
+        self.figure_analyzer = figure_analyzer
         self.pdf_dir = pdf_dir
         self.figures_dir = figures_dir
         self.latex_dir = latex_dir
@@ -133,6 +136,7 @@ class PaperProcessor:
         extract_figures: bool = True,
         generate_deep_note: bool = True,
         use_latex_source: bool = True,
+        analyze_figures: bool = True,
     ) -> Optional[Dict]:
         """
         Process a single paper.
@@ -168,6 +172,7 @@ class PaperProcessor:
 
             # Extract figures
             figures = []
+            latex_dir = None
             if extract_figures:
                 if use_latex_source:
                     logger.info(f"Trying LaTeX source extraction: {arxiv_id}")
@@ -198,6 +203,24 @@ class PaperProcessor:
                 note_content = self.note_gen.generate(material, query, figures, pdf_path)
                 note_path = self.note_gen.save(note_content, arxiv_id, title)
 
+            # Generate figure analysis
+            analysis_path = None
+            if analyze_figures and figures and latex_dir and self.figure_analyzer:
+                logger.info(f"Generating figure analysis: {arxiv_id}")
+                # Extract figure labels
+                figure_labels = [fig.get('label', '') for fig in figures if fig.get('label')]
+
+                # Extract contexts
+                contexts = {}
+                if figure_labels:
+                    contexts = LaTeXProcessor.extract_figure_contexts(latex_dir, figure_labels)
+
+                # Generate analysis
+                analysis_content = self.figure_analyzer.analyze_figures(
+                    figures, contexts, title, arxiv_id
+                )
+                analysis_path = self.figure_analyzer.save(analysis_content, arxiv_id, title)
+
             return {
                 "arxiv_id": arxiv_id,
                 "title": title,
@@ -206,6 +229,7 @@ class PaperProcessor:
                 "note_path": note_path,
                 "pdf_path": pdf_path,
                 "figures": figures,
+                "analysis_path": analysis_path,
             }
 
         except Exception as e:

@@ -14,6 +14,7 @@ from core.file_utils import safe_filename
 from generators.card_generator import CardGenerator
 from generators.note_generator import NoteGenerator
 from generators.report_generator import ReportGenerator
+from generators.figure_analyzer import FigureAnalyzer
 
 
 def main():
@@ -43,12 +44,14 @@ def main():
     logger.info(f"Extract figures: {config.processing.extract_figures}")
     logger.info(f"Generate deep note: {config.processing.generate_deep_note}")
     logger.info(f"Use LaTeX source: {config.processing.use_latex_source}")
+    logger.info(f"Analyze figures: {config.processing.analyze_figures}")
 
     # Setup directories
     out_dir = Path("outputs")
     card_dir = out_dir / "cards"
     deep_dir = out_dir / "deep_notes"
     report_dir = out_dir / "reports"
+    analysis_dir = out_dir / "figure_analysis"
     pdf_dir = out_dir / "pdfs"
     figures_dir = out_dir / "figures"
     latex_dir = out_dir / "latex_sources"
@@ -62,12 +65,14 @@ def main():
     card_gen = CardGenerator(openai_client, card_dir)
     note_gen = NoteGenerator(openai_client, deep_dir)
     report_gen = ReportGenerator(openai_client, report_dir)
+    figure_analyzer = FigureAnalyzer(openai_client, analysis_dir) if config.processing.analyze_figures else None
 
     # Initialize processor
     processor = PaperProcessor(
         deepxiv_client=deepxiv_client,
         card_generator=card_gen,
         note_generator=note_gen,
+        figure_analyzer=figure_analyzer,
         pdf_dir=pdf_dir,
         figures_dir=figures_dir,
         latex_dir=latex_dir,
@@ -111,6 +116,7 @@ def main():
                 config.processing.extract_figures,
                 config.processing.generate_deep_note,
                 config.processing.use_latex_source,
+                config.processing.analyze_figures,
             ): paper
             for paper in papers
         }
@@ -156,6 +162,8 @@ def main():
     logger.info(f"Processed: {len(processed_results)}/{len(papers)} papers")
     logger.info(f"Cards: {card_dir}")
     logger.info(f"Deep notes: {deep_dir}")
+    if config.processing.analyze_figures:
+        logger.info(f"Figure analysis: {analysis_dir}")
     logger.info(f"PDFs: {pdf_dir}")
     logger.info(f"Figures: {figures_dir}")
     logger.info(f"LaTeX sources: {latex_dir}")

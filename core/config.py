@@ -58,6 +58,7 @@ class ProcessingConfig:
     extract_figures: bool = True
     generate_deep_note: bool = True
     use_latex_source: bool = True
+    analyze_figures: bool = True  # New: Generate figure analysis
 
     def __post_init__(self):
         if self.max_workers < 1:
@@ -100,6 +101,7 @@ class Config:
             extract_figures=os.getenv("EXTRACT_FIGURES", "true").lower() == "true",
             generate_deep_note=os.getenv("GENERATE_DEEP_NOTE", "true").lower() == "true",
             use_latex_source=os.getenv("USE_LATEX_SOURCE", "true").lower() == "true",
+            analyze_figures=os.getenv("ANALYZE_FIGURES", "true").lower() == "true",
         )
 
         return cls(

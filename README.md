@@ -13,6 +13,7 @@
   - **10min Card**：快速了解核心内容
   - **30min Deep Note**：深度分析方法细节
 - 🎯 **图表分析**：每张图的详细解读
+- 📊 **图表上下文分析**：从 LaTeX 源码提取图表引用上下文，生成每张图的深度解读（NEW）
 - ⚡ **并行处理**：70% 性能提升
 - 📊 **调研报告**：批量处理后自动生成
 
@@ -50,6 +51,7 @@ MAX_WORKERS=8
 DOWNLOAD_PDF=true
 EXTRACT_FIGURES=true
 GENERATE_DEEP_NOTE=true
+ANALYZE_FIGURES=true  # 生成图表上下文分析
 ```
 
 ### 3. 运行
@@ -64,6 +66,7 @@ python main.py
 outputs/
 ├── cards/              # 10min Paper Cards
 ├── deep_notes/         # 30min Deep Notes
+├── figure_analysis/    # 图表上下文分析（NEW）
 ├── pdfs/              # PDF 文件
 ├── figures/           # 提取的图片
 │   └── {arxiv_id}/
@@ -96,6 +99,14 @@ outputs/
 - 可复现性判断
 - Follow-up 建议
 
+### 图表上下文分析（NEW）
+
+对每张图表：
+- **图表内容**：描述图表展示了什么
+- **作者意图**：作者放这张图的目的
+- **论文中的作用**：如何支撑核心观点
+- **上下文分析**：基于 LaTeX 源码中的引用上下文分析
+
 ## ⚡ 性能
 
 | 论文数量 | 优化前 | 优化后 | 提升 |
@@ -112,12 +123,13 @@ paper_agent/
 │   ├── config.py          # 配置管理
 │   ├── paper_processor.py # 论文处理
 │   ├── pdf_processor.py   # PDF 处理
-│   ├── latex_processor.py # LaTeX 处理
+│   ├── latex_processor.py # LaTeX 处理（含上下文提取）
 │   └── ...
 ├── generators/        # 生成器
 │   ├── card_generator.py
 │   ├── note_generator.py
-│   └── report_generator.py
+│   ├── report_generator.py
+│   └── figure_analyzer.py  # 图表分析器（NEW）
 ├── tests/            # 单元测试
 └── main.py           # 主程序
 ```
