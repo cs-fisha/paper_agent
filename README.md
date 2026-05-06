@@ -9,11 +9,10 @@
 - 🔍 **智能搜索**：基于 DeepXiv API 搜索 arXiv 论文
 - 📄 **自动下载**：PDF + LaTeX 源码
 - 🖼️ **图片提取**：LaTeX 源码优先（高质量）→ PDF fallback
-- 📝 **双层笔记**：
-  - **10min Card**：快速了解核心内容
-  - **30min Deep Note**：深度分析方法细节
-- 🎯 **图表分析**：每张图的详细解读
-- 📊 **图表上下文分析**：从 LaTeX 源码提取图表引用上下文，生成每张图的深度解读（NEW）
+- 📝 **三层笔记**（按顺序生成）：
+  1. **10min Card**：快速了解核心内容（默认开启）
+  2. **图表分析**：每张图的深度解读（默认开启）
+  3. **30min Deep Note**：深度分析方法细节（默认关闭）
 - ⚡ **并行处理**：70% 性能提升
 - 📊 **调研报告**：批量处理后自动生成
 
@@ -50,8 +49,8 @@ CATEGORIES=cs.CV,cs.CL
 MAX_WORKERS=8
 DOWNLOAD_PDF=true
 EXTRACT_FIGURES=true
-GENERATE_DEEP_NOTE=true
-ANALYZE_FIGURES=true  # 生成图表上下文分析
+GENERATE_DEEP_NOTE=false  # 30min深度笔记（默认关闭）
+ANALYZE_FIGURES=true      # 图表分析（默认开启）
 ```
 
 ### 3. 运行

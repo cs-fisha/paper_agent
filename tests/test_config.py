@@ -93,8 +93,9 @@ class TestProcessingConfig:
         assert config.max_workers == 8
         assert config.download_pdf is True
         assert config.extract_figures is True
-        assert config.generate_deep_note is True
+        assert config.generate_deep_note is False  # Changed: default to False
         assert config.use_latex_source is True
+        assert config.analyze_figures is True  # Default to True
 
     def test_custom_config(self):
         """Test with custom configuration."""

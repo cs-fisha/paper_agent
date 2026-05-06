@@ -9,11 +9,10 @@ An intelligent paper reading assistant powered by LLM that automatically searche
 - 🔍 **Smart Search**: Search arXiv papers via DeepXiv API
 - 📄 **Auto Download**: PDF + LaTeX source
 - 🖼️ **Figure Extraction**: LaTeX source first (high quality) → PDF fallback
-- 📝 **Dual-layer Notes**:
-  - **10min Card**: Quick overview
-  - **30min Deep Note**: In-depth analysis
-- 🎯 **Figure Analysis**: Detailed interpretation of each figure
-- 📊 **Figure Context Analysis**: Extract figure references from LaTeX source and generate deep interpretation for each figure (NEW)
+- 📝 **Three-layer Notes** (generated in order):
+  1. **10min Card**: Quick overview (enabled by default)
+  2. **Figure Analysis**: Deep interpretation of each figure (enabled by default)
+  3. **30min Deep Note**: In-depth analysis (disabled by default)
 - ⚡ **Parallel Processing**: 70% performance boost
 - 📊 **Survey Report**: Auto-generated after batch processing
 
@@ -50,8 +49,8 @@ CATEGORIES=cs.CV,cs.CL
 MAX_WORKERS=8
 DOWNLOAD_PDF=true
 EXTRACT_FIGURES=true
-GENERATE_DEEP_NOTE=true
-ANALYZE_FIGURES=true  # Generate figure context analysis
+GENERATE_DEEP_NOTE=false  # 30min deep note (disabled by default)
+ANALYZE_FIGURES=true      # Figure analysis (enabled by default)
 ```
 
 ### 3. Run

@@ -193,17 +193,11 @@ class PaperProcessor:
                         pdf_path, arxiv_id, self.figures_dir, max_figures=5
                     )
 
-            # Generate card
+            # Generate card (Step 1: 10min Card)
             card_content = self.card_gen.generate(material, query, figures)
             card_path = self.card_gen.save(card_content, arxiv_id, title)
 
-            # Generate deep note
-            note_path = None
-            if generate_deep_note:
-                note_content = self.note_gen.generate(material, query, figures, pdf_path)
-                note_path = self.note_gen.save(note_content, arxiv_id, title)
-
-            # Generate figure analysis
+            # Generate figure analysis (Step 2: Figure Analysis)
             analysis_path = None
             if analyze_figures and figures and latex_dir and self.figure_analyzer:
                 logger.info(f"Generating figure analysis: {arxiv_id}")
@@ -220,6 +214,12 @@ class PaperProcessor:
                     figures, contexts, title, arxiv_id
                 )
                 analysis_path = self.figure_analyzer.save(analysis_content, arxiv_id, title)
+
+            # Generate deep note (Step 3: 30min Deep Note)
+            note_path = None
+            if generate_deep_note:
+                note_content = self.note_gen.generate(material, query, figures, pdf_path)
+                note_path = self.note_gen.save(note_content, arxiv_id, title)
 
             return {
                 "arxiv_id": arxiv_id,
