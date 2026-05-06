@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 from typing import Dict, Optional, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.api_client import DeepXivClient
 from core.pdf_processor import PDFProcessor
 from core.latex_processor import LaTeXProcessor
@@ -193,33 +194,47 @@ class PaperProcessor:
                         pdf_path, arxiv_id, self.figures_dir, max_figures=5
                     )
 
-            # Generate card (Step 1: 10min Card)
-            card_content = self.card_gen.generate(material, query, figures)
-            card_path = self.card_gen.save(card_content, arxiv_id, title)
+            # Parallel generation of Card, Figure Analysis, and Deep Note
+            logger.info(f"Generating notes in parallel: {arxiv_id}")
 
-            # Generate figure analysis (Step 2: Figure Analysis)
+            card_path = None
             analysis_path = None
-            if analyze_figures and figures and latex_dir and self.figure_analyzer:
-                logger.info(f"Generating figure analysis: {arxiv_id}")
-                # Extract figure labels
-                figure_labels = [fig.get('label', '') for fig in figures if fig.get('label')]
-
-                # Extract contexts
-                contexts = {}
-                if figure_labels:
-                    contexts = LaTeXProcessor.extract_figure_contexts(latex_dir, figure_labels)
-
-                # Generate analysis
-                analysis_content = self.figure_analyzer.analyze_figures(
-                    figures, contexts, title, arxiv_id
-                )
-                analysis_path = self.figure_analyzer.save(analysis_content, arxiv_id, title)
-
-            # Generate deep note (Step 3: 30min Deep Note)
             note_path = None
-            if generate_deep_note:
-                note_content = self.note_gen.generate(material, query, figures, pdf_path)
-                note_path = self.note_gen.save(note_content, arxiv_id, title)
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {}
+
+                # Submit card generation
+                futures['card'] = executor.submit(
+                    self._generate_card, material, query, figures, arxiv_id, title
+                )
+
+                # Submit figure analysis if applicable
+                if analyze_figures and figures and latex_dir and self.figure_analyzer:
+                    futures['analysis'] = executor.submit(
+                        self._generate_figure_analysis,
+                        figures, latex_dir, title, arxiv_id
+                    )
+
+                # Submit deep note if applicable
+                if generate_deep_note:
+                    futures['note'] = executor.submit(
+                        self._generate_deep_note,
+                        material, query, figures, pdf_path, arxiv_id, title
+                    )
+
+                # Collect results
+                for name, future in futures.items():
+                    try:
+                        result = future.result()
+                        if name == 'card':
+                            card_path = result
+                        elif name == 'analysis':
+                            analysis_path = result
+                        elif name == 'note':
+                            note_path = result
+                    except Exception as e:
+                        logger.error(f"Error generating {name} for {arxiv_id}: {e}")
 
             return {
                 "arxiv_id": arxiv_id,
@@ -237,3 +252,32 @@ class PaperProcessor:
             import traceback
             traceback.print_exc()
             return None
+
+    def _generate_card(self, material, query, figures, arxiv_id, title) -> Path:
+        """Generate card in parallel."""
+        logger.info(f"Generating 10min card: {arxiv_id}")
+        card_content = self.card_gen.generate(material, query, figures)
+        return self.card_gen.save(card_content, arxiv_id, title)
+
+    def _generate_figure_analysis(self, figures, latex_dir, title, arxiv_id) -> Path:
+        """Generate figure analysis in parallel."""
+        logger.info(f"Generating figure analysis: {arxiv_id}")
+        # Extract figure labels
+        figure_labels = [fig.get('label', '') for fig in figures if fig.get('label')]
+
+        # Extract contexts
+        contexts = {}
+        if figure_labels:
+            contexts = LaTeXProcessor.extract_figure_contexts(latex_dir, figure_labels)
+
+        # Generate analysis
+        analysis_content = self.figure_analyzer.analyze_figures(
+            figures, contexts, title, arxiv_id
+        )
+        return self.figure_analyzer.save(analysis_content, arxiv_id, title)
+
+    def _generate_deep_note(self, material, query, figures, pdf_path, arxiv_id, title) -> Path:
+        """Generate deep note in parallel."""
+        logger.info(f"Generating 30min deep note: {arxiv_id}")
+        note_content = self.note_gen.generate(material, query, figures, pdf_path)
+        return self.note_gen.save(note_content, arxiv_id, title)
