@@ -64,7 +64,7 @@ class FigureAnalyzer:
             })
 
         prompt = f"""
-分析论文中的图表，理解作者意图。
+分析论文中的图表，理解作者意图（用中文输出）。
 
 论文标题：{paper_title}
 arXiv ID：{arxiv_id}
@@ -74,11 +74,10 @@ arXiv ID：{arxiv_id}
 2. 作者通过这张图想说明什么
 3. 这张图在论文中的作用
 
-# 图表分析
-
+图表信息：
 {json.dumps(figures_info, ensure_ascii=False, indent=2)}
 
-输出格式（每张图）：
+输出格式（每张图，用中文）：
 
 ## Figure X: [简短标题]
 
@@ -102,13 +101,42 @@ arXiv ID：{arxiv_id}
         # Beautify markdown
         analysis_content = fix_latex_formulas(analysis_content)
 
-        # Add header and figure images
+        # Build final content with header and figure images
         header = f"# 图表分析：{paper_title}\n\n"
         header += f"**arXiv ID**: {arxiv_id}\n\n"
         header += "---\n\n"
 
-        # Insert figure images
-        final_content = header + analysis_content
+        # Insert figure images into analysis
+        final_content = header
+
+        # Split analysis by figure sections
+        import re
+        sections = re.split(r'(## Figure \d+[^\n]*)', analysis_content)
+
+        for i in range(1, len(sections), 2):
+            if i < len(sections):
+                figure_header = sections[i]
+                figure_content = sections[i + 1] if i + 1 < len(sections) else ""
+
+                # Extract figure number
+                match = re.search(r'Figure (\d+)', figure_header)
+                if match:
+                    fig_num = int(match.group(1))
+
+                    # Find corresponding figure
+                    for fig in figures:
+                        if fig.get('index') == fig_num:
+                            # Get relative path
+                            fig_path = Path(fig['path'])
+                            rel_path = fig_path.relative_to(self.analysis_dir.parent)
+
+                            # Insert figure header, image, then content
+                            final_content += figure_header + "\n\n"
+                            final_content += f"![Figure {fig_num}](../{rel_path})\n\n"
+                            final_content += figure_content
+                            break
+                else:
+                    final_content += figure_header + figure_content
 
         return final_content
 
