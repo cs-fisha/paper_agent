@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from core.api_client import OpenAIClient
 from core.logger import get_logger
-from core.markdown_beautifier import MarkdownBeautifier
+from core.utils import fix_latex_formulas
 
 logger = get_logger(__name__)
 
@@ -55,42 +55,29 @@ class NoteGenerator:
             pdf_info = f"\n\n## PDF 文件\n\n[查看完整 PDF](../{rel_pdf_path})\n\n"
 
         prompt = f"""
-请基于下面的论文材料，生成一份适合我 30 分钟内细读完的 deep reading note。
+基于论文材料生成 30 分钟深度阅读笔记（中文 Markdown）。
 
-要求：
-- 用中文输出，尽量浅显易懂。
-- 必须区分"论文明确说的内容"和"你的推断/评价"。
-- 必须指出实验是否足以支撑 claim。
-- 如果材料缺失，不要编造。
-{f"- 重点关注与 {query} 相关的内容。" if query else ""}
-
-输出结构：
+要求：区分"论文明确内容"和"推断/评价"，指出实验是否支撑claim，材料缺失不编造。{f"重点关注 {query}。" if query else ""}
 
 # 30min Deep Reading Note
 
 ## 1. 论文主张与真实贡献
 ## 2. 方法细节拆解
-## 3. 训练数据 / 偏好数据 / 标注方式
-## 4. 模型结构或 pipeline
+## 3. 训练数据/标注方式
+## 4. 模型结构或pipeline
 ## 5. 实验结果是否可信
-## 6. Ablation / Analysis 是否充分
-## 7. 最值得看的图/表/实验 ⭐
-
-**重要**：请详细分析论文中的关键图表，对每个图表说明：
-- 图表展示了什么内容
-- 如何支撑论文观点
-- 是否逻辑严密
-- 是否有明显问题
-
-## 8. 可能的 hidden weakness
+## 6. Ablation/Analysis是否充分
+## 7. 最值得看的图/表 ⭐
+详细分析关键图表：展示内容、如何支撑观点、逻辑严密性、明显问题
+## 8. Hidden weakness
 ## 9. 和我的方向的关系
 ## 10. 可复现性判断
-## 11. 我如果要 follow，可以怎么做
-- 最小复现实验：
-- 可以改进的点：
-- 可能能写成论文的切入点：
+## 11. Follow方向
+- 最小复现实验
+- 改进点
+- 论文切入点
 
-论文材料如下：
+论文材料：
 {json.dumps(material, ensure_ascii=False, indent=2)[:160000]}
 """
         logger.info("Generating 30-minute deep note")
@@ -98,7 +85,7 @@ class NoteGenerator:
         logger.debug(f"Note generated, length: {len(note_content)}")
 
         # Beautify markdown
-        note_content = MarkdownBeautifier.beautify(note_content)
+        note_content = fix_latex_formulas(note_content)
         logger.debug("Note content beautified")
 
         # Append PDF link and figures
