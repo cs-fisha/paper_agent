@@ -108,6 +108,10 @@ For each figure:
 
 ## ⚡ Performance
 
+**Parallel Optimization**:
+- Paper-level parallelism: Multiple papers processed simultaneously
+- Generator parallelism: Card, Figure Analysis, Deep Note generated concurrently
+
 | Papers | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | 5      | 13 min | 4 min | **69% ⬇️** |
