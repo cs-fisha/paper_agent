@@ -35,19 +35,23 @@ class CardGenerator:
         Returns:
             Generated card content
         """
-        figures_for_section7 = ""
-        if figures:
-            figures_for_section7 = "\n\n**论文提取的图片**（请在分析时引用这些图片）：\n"
-            for fig in figures:
-                rel_path = Path(fig["path"]).relative_to(self.card_dir.parent)
-                figures_for_section7 += f"- Figure {fig['index']}: 图片路径 `../{rel_path}`\n"
-
         prompt = f"""
 基于论文材料生成 10 分钟阅读笔记（中文 Markdown）。
 
 要求：基于 Introduction/Method/Experiments，不编造，材料不足时说明。{f"重点关注 {query}。" if query else ""}
 
-# 10min Paper Card
+输出格式如下（严格按照此结构）：
+
+# 10min Paper Card：{{论文标题}}
+
+论文：**{{论文标题}}**
+arXiv: **{{arxiv_id}}**
+关键词：{{从材料中提取 3-6 个核心关键词，用 " / " 分隔}}
+类型：**{{判断论文类型：Research / Survey / Benchmark / Position Paper / Workshop Paper 等}}**
+{{如果 venue/journal_name 不为空且不是 "arXiv.org"，输出：发表：**{{venue/journal_name}}**（这表示被顶会/期刊录用，务必标注）}}
+{{如果论文材料中提到了 GitHub 开源链接或代码仓库地址，输出：代码：**{{GitHub URL}}**}}
+
+---
 
 ## 1. 一句话结论
 ## 2. 论文想解决的问题
@@ -56,24 +60,15 @@ class CardGenerator:
 ## 5. 实验设置
 - 数据集、Baseline、指标
 ## 6. 关键结果
-## 7. 最值得看的图/表 ⭐
+## 7. 可能的问题或漏洞
+## 8. 对我的方向是否有用（A/B/C/D + 原因）
+## 9. 30分钟优先读哪些部分
 
-对每个关键图表：
-
-### Figure X
-
-![Figure X](图片路径)
-
-**说明**：描述图的内容
-**创新点**：如何支撑核心贡献
-**严密性**：设计是否合理
-**可理解度**：约X%
-
-{figures_for_section7}
-
-## 8. 可能的问题或漏洞
-## 9. 对我的方向是否有用（A/B/C/D + 原因）
-## 10. 30分钟优先读哪些部分
+注意事项：
+- 元数据头部必须放在最前面，紧跟标题之后
+- venue/journal_name 字段在 material["head"] 中，如果有值且不是 "arXiv.org"，说明论文已被顶会/期刊录用，一定要标出
+- GitHub 链接可能出现在 abstract、introduction 或 conclusion 中，如果找到请标注
+- 关键词应反映论文的核心技术贡献，不要照搬搜索 query
 
 论文材料：
 {json.dumps(material, ensure_ascii=False, indent=2)[:120000]}

@@ -2,160 +2,157 @@
 
 English | [简体中文](./README.md)
 
-An intelligent paper reading assistant powered by LLM that automatically searches, downloads, extracts figures, and generates structured notes.
+LLM-powered paper reading assistant. Automatically searches arXiv papers, extracts figures, and generates structured reading notes.
 
-## ✨ Core Features
+## Features
 
-- 🔍 **Smart Search**: Search arXiv papers via DeepXiv API
-- 📄 **Auto Download**: PDF + LaTeX source
-- 🖼️ **Figure Extraction**: LaTeX source first (high quality) → PDF fallback
-- 📝 **Three-layer Notes** (generated in order):
-  1. **10min Card**: Quick overview (enabled by default)
-  2. **Figure Analysis**: Deep interpretation of each figure (enabled by default)
-  3. **30min Deep Note**: In-depth analysis (disabled by default)
-- ⚡ **Parallel Processing**: 70% performance boost
-- 📊 **Survey Report**: Auto-generated after batch processing
+- **Paper Search**: Search arXiv via DeepXiv API by keywords, categories, and date
+- **Figure Extraction**: LaTeX source preferred (high quality), PDF as fallback
+- **Three-layer Notes**:
+  - 10min Card — quick grasp of core contributions
+  - Figure Context Analysis — interprets each figure with LaTeX citation context
+  - 30min Deep Note — method details, experiment credibility, reproducibility
+- **Metadata Annotation**: Auto-labels paper type, top-venue acceptance, open-source code links
+- **Parallel Processing**: Paper-level + generator-level dual parallelism
+- **Survey Report**: Auto-generated after batch processing
 
-## 📦 Quick Start
-
-### 1. Installation
+## Quick Start
 
 ```bash
-git clone https://github.com/yourusername/paper_agent.git
+git clone https://github.com/sinksilk/paper_agent.git
 cd paper_agent
 pip install -r requirements.txt
+cp .env.example .env  # Edit and fill in API keys
+python main.py
 ```
 
-### 2. Configuration
+## Configuration
 
-Copy `.env.example` to `.env` and fill in:
+Edit `.env`:
 
 ```bash
-# OpenAI API
+# LLM API (any OpenAI-compatible endpoint)
 OPENAI_API_KEY=your_key
 OPENAI_BASE_URL=https://api.openai.com/v1
 MODEL_NAME=gpt-4
 
-# DeepXiv API
+# DeepXiv API (register at https://deepxiv.com)
 DEEPXIV_TOKEN=your_token
 
-# Search Config
-QUERY="multimodal LVLM MLLM"
-LIMIT=5
+# Search
+QUERY="multimodal LVLM jailbreak"
+LIMIT=10
 DATE_FROM=2025-01-01
-CATEGORIES=cs.CV,cs.CL
+CATEGORIES=cs.CV,cs.CL,cs.CR
 
-# Processing Config
-MAX_WORKERS=8
+# Processing
+MAX_WORKERS=8              # Parallel threads
 DOWNLOAD_PDF=true
 EXTRACT_FIGURES=true
-GENERATE_DEEP_NOTE=false  # 30min deep note (disabled by default)
-ANALYZE_FIGURES=true      # Figure analysis (enabled by default)
+USE_LATEX_SOURCE=true      # Prefer LaTeX source for figures
+ANALYZE_FIGURES=true       # Figure context analysis
+GENERATE_DEEP_NOTE=false   # 30min deep note (slower)
 ```
 
-### 3. Run
+## Output Example
 
-```bash
-python main.py
+### Card Metadata Header
+
+Each card starts with structured metadata:
+
+```markdown
+# 10min Paper Card: Cross-Modal Obfuscation for Jailbreak Attacks on LVLMs
+
+Paper: **Cross-Modal Obfuscation for Jailbreak Attacks on Large Vision-Language Models**
+arXiv: **2506.16760**
+Keywords: LVLM / adversarial jailbreak / black-box / cross-modal obfuscation
+Type: **Research**
+Venue: **NeurIPS 2025**              ← auto-labeled if accepted at a top venue
+Code: **https://github.com/xxx/xxx** ← auto-labeled if mentioned in the paper
 ```
 
-## 📁 Output Structure
+### Output Directory
 
 ```
 outputs/
-├── cards/              # 10min Paper Cards
+├── cards/              # 10min Paper Cards (with figure analysis)
 ├── deep_notes/         # 30min Deep Notes
-├── figure_analysis/    # Figure context analysis (NEW)
+├── figure_analysis/    # Figure context analysis (standalone)
+├── figures/            # Extracted figures
 ├── pdfs/              # PDF files
-├── figures/           # Extracted figures
-│   └── {arxiv_id}/
 ├── latex_sources/     # LaTeX sources
 └── reports/           # Survey reports
     └── {query}_{timestamp}/
+        ├── report.md
+        ├── cards/
+        └── materials/
 ```
 
-## 📝 Output Format
+## Note Format
 
 ### 10min Card
 
-- One-sentence conclusion
-- Core problem & method
-- Experiment setup & results
-- **Key figures/tables** ⭐ (with detailed analysis)
-- Potential issues
-- Usefulness rating (A/B/C/D)
-- Reading suggestions
+| Section | Content |
+|---------|---------|
+| One-sentence conclusion | Core contribution |
+| Problem | Motivation and background |
+| Method | Technical approach |
+| Difference from prior work | Novelty |
+| Experiment setup | Datasets, baselines, metrics |
+| Key results | Main findings |
+| Potential issues | Critical analysis |
+| Usefulness to my research | A/B/C/D rating + reason |
+| Priority reading sections | Reading guide for 30min |
 
 ### 30min Deep Note
 
-- Claims vs. real contributions
-- Method details breakdown
-- Training data / model structure
-- Experiment credibility
-- Ablation sufficiency
-- **Key figures/tables** ⭐
-- Hidden weaknesses
-- Reproducibility assessment
-- Follow-up suggestions
+In-depth analysis of method details, training data, model architecture, experiment credibility, ablation sufficiency, hidden weaknesses, reproducibility, and follow-up suggestions.
 
-### Figure Context Analysis (NEW)
-
-For each figure:
-- **Figure Content**: What the figure shows
-- **Author's Intent**: Why the author included this figure
-- **Role in Paper**: How it supports the core argument
-- **Context Analysis**: Analysis based on reference contexts from LaTeX source
-
-## ⚡ Performance
-
-**Parallel Optimization**:
-- Paper-level parallelism: Multiple papers processed simultaneously
-- Generator parallelism: Card, Figure Analysis, Deep Note generated concurrently
-
-| Papers | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| 5      | 13 min | 4 min | **69% ⬇️** |
-| 20     | 50 min | 15 min | **70% ⬇️** |
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 paper_agent/
-├── core/              # Core modules
-│   ├── api_client.py
-│   ├── config.py
-│   ├── paper_processor.py
-│   ├── pdf_processor.py
-│   ├── latex_processor.py  # LaTeX processing (with context extraction)
-│   └── ...
-├── generators/        # Generators
-│   ├── card_generator.py
-│   ├── note_generator.py
-│   ├── report_generator.py
-│   └── figure_analyzer.py  # Figure analyzer (NEW)
-├── tests/            # Unit tests
-└── main.py           # Main entry
+├── core/
+│   ├── api_client.py        # OpenAI + DeepXiv API clients
+│   ├── config.py            # Configuration (loads from .env)
+│   ├── paper_processor.py   # Main processing pipeline
+│   ├── pdf_processor.py     # PDF download & figure extraction
+│   ├── latex_processor.py   # LaTeX download, figure & context extraction
+│   ├── retry.py             # Retry decorator
+│   └── utils.py             # Utilities
+├── generators/
+│   ├── card_generator.py    # 10min Card generation
+│   ├── note_generator.py    # 30min Deep Note generation
+│   ├── report_generator.py  # Survey report generation
+│   └── figure_analyzer.py   # Figure context analysis
+├── tests/
+├── main.py
+├── requirements.txt
+└── .env.example
 ```
 
-## 🧪 Testing
+## Performance
+
+Dual-layer parallelism (paper-level + generator-level):
+
+| Papers | Sequential | Parallel | Improvement |
+|--------|-----------|----------|-------------|
+| 5 | ~13 min | ~4 min | 69% |
+| 20 | ~50 min | ~15 min | 70% |
+
+## Testing
 
 ```bash
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-## 📄 License
+## Dependencies
 
-MIT License
+- [DeepXiv](https://deepxiv.com) — Paper search and parsing API
+- [PyMuPDF](https://pymupdf.readthedocs.io/) — PDF processing
+- [OpenAI SDK](https://github.com/openai/openai-python) — LLM calls (any OpenAI-compatible endpoint)
 
-## 🙏 Acknowledgments
+## License
 
-- [DeepXiv](https://deepxiv.com) - Paper search and parsing API
-- [PyMuPDF](https://pymupdf.readthedocs.io/) - PDF processing
-- [OpenAI](https://openai.com) - LLM API
-
-## ⚠️ Notes
-
-1. **API Costs**: Using OpenAI API incurs costs
-2. **Network**: Requires stable internet connection
-3. **Storage**: PDFs and figures consume storage space
+MIT

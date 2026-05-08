@@ -21,7 +21,7 @@ class OpenAIClient:
         )
         logger.info(f"Initialized OpenAI client with model: {config.model_name}")
 
-    @retry_on_exception(max_attempts=3, delay=2.0, backoff=2.0)
+    @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def call_llm(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """
         Call LLM with retry logic.
@@ -64,7 +64,7 @@ class DeepXivClient:
         self.reader = Reader(token=config.token)
         logger.info("Initialized DeepXiv client")
 
-    @retry_on_exception(max_attempts=3, delay=2.0, backoff=2.0)
+    @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def search(
         self,
         query: str,
@@ -104,19 +104,19 @@ class DeepXivClient:
 
         return results
 
-    @retry_on_exception(max_attempts=3, delay=1.0, backoff=2.0)
+    @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def brief(self, arxiv_id: str) -> dict:
         """Get paper brief with retry logic."""
         logger.debug(f"Fetching brief for {arxiv_id}")
         return self.reader.brief(arxiv_id)
 
-    @retry_on_exception(max_attempts=3, delay=1.0, backoff=2.0)
+    @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def head(self, arxiv_id: str) -> dict:
         """Get paper head with retry logic."""
         logger.debug(f"Fetching head for {arxiv_id}")
         return self.reader.head(arxiv_id)
 
-    @retry_on_exception(max_attempts=3, delay=1.0, backoff=2.0)
+    @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def section(self, arxiv_id: str, section_name: str) -> str:
         """Get paper section with retry logic."""
         logger.debug(f"Fetching section '{section_name}' for {arxiv_id}")

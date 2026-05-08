@@ -236,6 +236,10 @@ class PaperProcessor:
                     except Exception as e:
                         logger.error(f"Error generating {name} for {arxiv_id}: {e}")
 
+            # Append figure analysis to card
+            if card_path:
+                self._append_figure_analysis_to_card(card_path, analysis_path)
+
             return {
                 "arxiv_id": arxiv_id,
                 "title": title,
@@ -281,3 +285,29 @@ class PaperProcessor:
         logger.info(f"Generating 30min deep note: {arxiv_id}")
         note_content = self.note_gen.generate(material, query, figures, pdf_path)
         return self.note_gen.save(note_content, arxiv_id, title)
+
+    def _append_figure_analysis_to_card(self, card_path: Path, analysis_path: Optional[Path]):
+        """Append figure analysis content to the end of the card file."""
+        import re
+
+        card_content = card_path.read_text(encoding="utf-8")
+
+        if not analysis_path or not analysis_path.exists():
+            card_content += "\n\n---\n\n> 图表深度分析未生成（缺少 LaTeX 源码或未提取到图表）。\n"
+            card_path.write_text(card_content, encoding="utf-8")
+            return
+
+        analysis_content = analysis_path.read_text(encoding="utf-8")
+
+        # Strip the standalone header (title, arxiv id, separator)
+        analysis_body = re.sub(
+            r'^# 图表分析：.*?\n\n\*\*arXiv ID\*\*:.*?\n\n---\n\n',
+            '',
+            analysis_content,
+            flags=re.DOTALL
+        )
+
+        card_content += "\n\n---\n\n## 图表深度分析\n\n"
+        card_content += analysis_body.strip() + "\n"
+        card_path.write_text(card_content, encoding="utf-8")
+        logger.info(f"Figure analysis appended to card: {card_path.name}")

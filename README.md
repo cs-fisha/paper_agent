@@ -2,160 +2,157 @@
 
 [English](./README_EN.md) | 简体中文
 
-基于 LLM 的智能论文阅读助手，自动搜索、下载、提取图片并生成结构化笔记。
+基于 LLM 的论文阅读助手。自动搜索 arXiv 论文，提取图表，生成结构化阅读笔记。
 
-## ✨ 核心功能
+## 功能
 
-- 🔍 **智能搜索**：基于 DeepXiv API 搜索 arXiv 论文
-- 📄 **自动下载**：PDF + LaTeX 源码
-- 🖼️ **图片提取**：LaTeX 源码优先（高质量）→ PDF fallback
-- 📝 **三层笔记**（按顺序生成）：
-  1. **10min Card**：快速了解核心内容（默认开启）
-  2. **图表分析**：每张图的深度解读（默认开启）
-  3. **30min Deep Note**：深度分析方法细节（默认关闭）
-- ⚡ **并行处理**：70% 性能提升
-- 📊 **调研报告**：批量处理后自动生成
+- **论文搜索**：通过 DeepXiv API 按关键词、分类、日期搜索 arXiv 论文
+- **图表提取**：优先从 LaTeX 源码提取高质量图片，PDF 作为 fallback
+- **三层笔记生成**：
+  - 10min Card — 快速掌握核心贡献
+  - 图表上下文分析 — 结合 LaTeX 引用上下文解读每张图
+  - 30min Deep Note — 方法细节、实验可信度、可复现性
+- **元数据标注**：自动标注论文类型、顶会录用、开源代码链接
+- **批量并行处理**：论文级 + 生成器级双层并行
+- **调研报告**：批量处理后自动生成综述
 
-## 📦 快速开始
-
-### 1. 安装
+## 快速开始
 
 ```bash
-git clone https://github.com/yourusername/paper_agent.git
+git clone https://github.com/sinksilk/paper_agent.git
 cd paper_agent
 pip install -r requirements.txt
+cp .env.example .env  # 编辑填入 API key
+python main.py
 ```
 
-### 2. 配置
+## 配置
 
-复制 `.env.example` 到 `.env` 并填写：
+编辑 `.env` 文件：
 
 ```bash
-# OpenAI API
+# LLM API（兼容 OpenAI 接口的任意服务）
 OPENAI_API_KEY=your_key
 OPENAI_BASE_URL=https://api.openai.com/v1
 MODEL_NAME=gpt-4
 
-# DeepXiv API
+# DeepXiv API（https://deepxiv.com 注册获取）
 DEEPXIV_TOKEN=your_token
 
-# 搜索配置
-QUERY="multimodal LVLM MLLM"
-LIMIT=5
+# 搜索
+QUERY="multimodal LVLM jailbreak"
+LIMIT=10
 DATE_FROM=2025-01-01
-CATEGORIES=cs.CV,cs.CL
+CATEGORIES=cs.CV,cs.CL,cs.CR
 
-# 处理配置
-MAX_WORKERS=8
-DOWNLOAD_PDF=true
-EXTRACT_FIGURES=true
-GENERATE_DEEP_NOTE=false  # 30min深度笔记（默认关闭）
-ANALYZE_FIGURES=true      # 图表分析（默认开启）
+# 处理
+MAX_WORKERS=8              # 并行线程数
+DOWNLOAD_PDF=true          # 下载 PDF
+EXTRACT_FIGURES=true       # 提取图表
+USE_LATEX_SOURCE=true      # 优先 LaTeX 源码提取图片
+ANALYZE_FIGURES=true       # 图表上下文分析
+GENERATE_DEEP_NOTE=false   # 30min 深度笔记（耗时较长）
 ```
 
-### 3. 运行
+## 输出示例
 
-```bash
-python main.py
+### Card 元数据头部
+
+每张 Card 开头自动生成结构化元数据：
+
+```markdown
+# 10min Paper Card：Cross-Modal Obfuscation for Jailbreak Attacks on LVLMs
+
+论文：**Cross-Modal Obfuscation for Jailbreak Attacks on Large Vision-Language Models**
+arXiv: **2506.16760**
+关键词：LVLM / adversarial jailbreak / black-box / cross-modal obfuscation
+类型：**Research**
+发表：**NeurIPS 2025**          ← 如果被顶会录用会自动标注
+代码：**https://github.com/xxx/xxx**  ← 如果论文提到开源代码会标注
 ```
 
-## 📁 输出结构
+### 输出目录结构
 
 ```
 outputs/
-├── cards/              # 10min Paper Cards
+├── cards/              # 10min Paper Cards（含图表分析）
 ├── deep_notes/         # 30min Deep Notes
-├── figure_analysis/    # 图表上下文分析（NEW）
+├── figure_analysis/    # 图表上下文分析（独立文件）
+├── figures/            # 提取的图片
 ├── pdfs/              # PDF 文件
-├── figures/           # 提取的图片
-│   └── {arxiv_id}/
 ├── latex_sources/     # LaTeX 源码
 └── reports/           # 调研报告
     └── {query}_{timestamp}/
+        ├── report.md
+        ├── cards/     # 该次查询的所有 card 副本
+        └── materials/ # 原始材料 JSON
 ```
 
-## 📝 输出格式
+## 笔记格式
 
 ### 10min Card
 
-- 一句话结论
-- 核心问题与方法
-- 实验设置与结果
-- **最值得看的图/表** ⭐（带详细分析）
-- 可能的问题
-- 对我的方向是否有用（A/B/C/D）
-- 阅读建议
+| 章节 | 内容 |
+|------|------|
+| 一句话结论 | 论文核心贡献 |
+| 论文想解决的问题 | 动机和背景 |
+| 核心方法 | 技术方案 |
+| 和已有工作的区别 | 创新点 |
+| 实验设置 | 数据集、Baseline、指标 |
+| 关键结果 | 主要实验发现 |
+| 可能的问题或漏洞 | 批判性分析 |
+| 对我的方向是否有用 | A/B/C/D 评级 + 原因 |
+| 30分钟优先读哪些部分 | 阅读建议 |
 
 ### 30min Deep Note
 
-- 论文主张与真实贡献
-- 方法细节拆解
-- 训练数据/模型结构
-- 实验可信度
-- Ablation 充分性
-- **最值得看的图/表** ⭐
-- Hidden weakness
-- 可复现性判断
-- Follow-up 建议
+深入分析方法细节、训练数据、模型结构、实验可信度、Ablation 充分性、Hidden weakness、可复现性判断、Follow-up 建议。
 
-### 图表上下文分析（NEW）
-
-对每张图表：
-- **图表内容**：描述图表展示了什么
-- **作者意图**：作者放这张图的目的
-- **论文中的作用**：如何支撑核心观点
-- **上下文分析**：基于 LaTeX 源码中的引用上下文分析
-
-## ⚡ 性能
-
-**并行优化**：
-- 论文级并行：多篇论文同时处理
-- 生成器并行：Card、图表分析、Deep Note 同时生成
-
-| 论文数量 | 优化前 | 优化后 | 提升 |
-|---------|-------|-------|------|
-| 5 篇    | 13 分钟 | 4 分钟 | **69% ⬇️** |
-| 20 篇   | 50 分钟 | 15 分钟 | **70% ⬇️** |
-
-## 🏗️ 项目结构
+## 项目结构
 
 ```
 paper_agent/
-├── core/              # 核心模块
-│   ├── api_client.py      # API 客户端
-│   ├── config.py          # 配置管理
-│   ├── paper_processor.py # 论文处理
-│   ├── pdf_processor.py   # PDF 处理
-│   ├── latex_processor.py # LaTeX 处理（含上下文提取）
-│   └── ...
-├── generators/        # 生成器
-│   ├── card_generator.py
-│   ├── note_generator.py
-│   ├── report_generator.py
-│   └── figure_analyzer.py  # 图表分析器（NEW）
-├── tests/            # 单元测试
-└── main.py           # 主程序
+├── core/
+│   ├── api_client.py        # OpenAI + DeepXiv API 客户端
+│   ├── config.py            # 配置管理（从 .env 加载）
+│   ├── paper_processor.py   # 论文处理主流程
+│   ├── pdf_processor.py     # PDF 下载与图片提取
+│   ├── latex_processor.py   # LaTeX 源码下载、图片提取、上下文提取
+│   ├── retry.py             # 重试装饰器
+│   └── utils.py             # 工具函数
+├── generators/
+│   ├── card_generator.py    # 10min Card 生成
+│   ├── note_generator.py    # 30min Deep Note 生成
+│   ├── report_generator.py  # 调研报告生成
+│   └── figure_analyzer.py   # 图表上下文分析
+├── tests/                   # 单元测试
+├── main.py                  # 入口
+├── requirements.txt
+└── .env.example
 ```
 
-## 🧪 测试
+## 性能
+
+双层并行优化（论文级 + 生成器级）：
+
+| 论文数量 | 串行 | 并行 | 提升 |
+|---------|------|------|------|
+| 5 篇 | ~13 min | ~4 min | 69% |
+| 20 篇 | ~50 min | ~15 min | 70% |
+
+## 测试
 
 ```bash
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-## 📄 许可证
+## 依赖
 
-MIT License
+- [DeepXiv](https://deepxiv.com) — 论文搜索与解析 API
+- [PyMuPDF](https://pymupdf.readthedocs.io/) — PDF 处理
+- [OpenAI SDK](https://github.com/openai/openai-python) — LLM 调用（兼容任意 OpenAI 接口）
 
-## 🙏 致谢
+## License
 
-- [DeepXiv](https://deepxiv.com) - 论文搜索和解析 API
-- [PyMuPDF](https://pymupdf.readthedocs.io/) - PDF 处理
-- [OpenAI](https://openai.com) - LLM API
-
-## ⚠️ 注意
-
-1. **API 费用**：使用 OpenAI API 会产生费用
-2. **网络要求**：需要稳定的网络连接
-3. **存储空间**：PDF 和图片会占用存储空间
+MIT

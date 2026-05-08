@@ -140,10 +140,12 @@ def main():
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         report_path = report_gen.save(report_content, config.search.query, timestamp)
 
-        # Copy materials to report directory
+        # Copy materials and cards to report directory
         report_subdir = report_path.parent
         materials_dir = report_subdir / "materials"
+        cards_subdir = report_subdir / "cards"
         materials_dir.mkdir(exist_ok=True)
+        cards_subdir.mkdir(exist_ok=True)
 
         for r in processed_results:
             arxiv_id = r["arxiv_id"]
@@ -153,7 +155,15 @@ def main():
             if src_material.exists():
                 shutil.copy2(src_material, dst_material)
 
+            # Copy card to query folder with fixed relative paths
+            card_path = r.get("card_path")
+            if card_path and Path(card_path).exists():
+                card_content = Path(card_path).read_text(encoding="utf-8")
+                card_content = card_content.replace("](../figures/", "](../../../figures/")
+                (cards_subdir / Path(card_path).name).write_text(card_content, encoding="utf-8")
+
         logger.info(f"Copied {len(processed_results)} material files to {materials_dir}")
+        logger.info(f"Copied cards to {cards_subdir}")
 
     # Summary
     logger.info("=" * 80)
