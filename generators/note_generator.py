@@ -57,7 +57,7 @@ class NoteGenerator:
         prompt = f"""
 基于论文材料生成 30 分钟深度阅读笔记（中文 Markdown）。
 
-要求：区分"论文明确内容"和"推断/评价"，指出实验是否支撑claim，材料缺失不编造。{f"重点关注 {query}。" if query else ""}
+要求：区分"论文明确内容"和"推断/评价"，指出实验是否支撑claim，材料缺失不编造。{f"以我的研究方向为评判视角：{query}。" if query else ""}
 
 # 30min Deep Reading Note
 
@@ -71,6 +71,7 @@ class NoteGenerator:
 详细分析关键图表：展示内容、如何支撑观点、逻辑严密性、明显问题
 ## 8. Hidden weakness
 ## 9. 和我的方向的关系
+说明相关性、可迁移部分、不能直接借鉴的边界，以及能如何启发新论文选题。
 ## 10. 可复现性判断
 ## 11. Follow方向
 - 最小复现实验

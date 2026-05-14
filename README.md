@@ -7,6 +7,8 @@
 ## 功能
 
 - **论文搜索**：通过 DeepXiv API 按关键词、分类、日期搜索 arXiv 论文
+- **ID 文件导入**：从 txt 批量读取 arXiv ID / URL，跳过关键词搜索直接处理指定论文
+- **研究方向判断**：用独立的 `RESEARCH_FOCUS` 评估论文相关性、启发和新论文切入点
 - **图表提取**：优先从 LaTeX 源码提取高质量图片，PDF 作为 fallback
 - **三层笔记生成**：
   - 10min Card — 快速掌握核心贡献
@@ -40,7 +42,9 @@ MODEL_NAME=gpt-4
 DEEPXIV_TOKEN=your_token
 
 # 搜索
-QUERY="multimodal LVLM jailbreak"
+QUERY="multimodal LVLM jailbreak"       # 只用于关键词搜索
+RESEARCH_FOCUS="multimodal LVLM safety" # 用于相关性判断、启发和新论文选题
+ARXIV_IDS_FILE=              # 可选：设置后从 txt 读取 ID，跳过关键词搜索
 LIMIT=10
 DATE_FROM=2025-01-01
 CATEGORIES=cs.CV,cs.CL,cs.CR
@@ -53,6 +57,25 @@ USE_LATEX_SOURCE=true      # 优先 LaTeX 源码提取图片
 ANALYZE_FIGURES=true       # 图表上下文分析
 GENERATE_DEEP_NOTE=false   # 30min 深度笔记（耗时较长）
 ```
+
+### 从 txt 批量处理指定论文
+
+准备一个 txt 文件，内容可以混合 arXiv URL 和裸 ID：
+
+```text
+https://arxiv.org/abs/2605.08389
+2605.08389
+2605.08389v2
+https://arxiv.org/pdf/2605.08389.pdf
+```
+
+然后运行：
+
+```bash
+python main.py --ids-file papers.txt
+```
+
+也可以在 `.env` 中设置 `ARXIV_IDS_FILE=papers.txt` 后直接运行 `python main.py`。启用后会跳过关键词搜索，下载并解析 txt 中的所有论文，最后生成本批次的报告。论文相关性、对你的启发和新论文切入点会统一根据 `RESEARCH_FOCUS` 判断；如果 `RESEARCH_FOCUS` 留空，则默认使用 `QUERY`。
 
 ## 输出示例
 
@@ -101,7 +124,7 @@ outputs/
 | 实验设置 | 数据集、Baseline、指标 |
 | 关键结果 | 主要实验发现 |
 | 可能的问题或漏洞 | 批判性分析 |
-| 对我的方向是否有用 | A/B/C/D 评级 + 原因 |
+| 对我的方向是否有用与启发 | A/B/C/D 评级 + 原因 + 对新论文选题的指导 |
 | 30分钟优先读哪些部分 | 阅读建议 |
 
 ### 30min Deep Note

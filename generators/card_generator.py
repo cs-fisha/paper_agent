@@ -38,7 +38,7 @@ class CardGenerator:
         prompt = f"""
 基于论文材料生成 10 分钟阅读笔记（中文 Markdown）。
 
-要求：基于 Introduction/Method/Experiments，不编造，材料不足时说明。{f"重点关注 {query}。" if query else ""}
+要求：基于 Introduction/Method/Experiments，不编造，材料不足时说明。{f"以我的研究方向为评判视角：{query}。" if query else ""}
 
 输出格式如下（严格按照此结构）：
 
@@ -61,7 +61,11 @@ arXiv: **{{arxiv_id}}**
 - 数据集、Baseline、指标
 ## 6. 关键结果
 ## 7. 可能的问题或漏洞
-## 8. 对我的方向是否有用（A/B/C/D + 原因）
+## 8. 对我的方向是否有用与启发（A/B/C/D + 原因）
+- 相关性评级：
+- 为什么相关 / 不相关：
+- 对我的研究的具体启发：
+- 如何指导我发新的论文：
 ## 9. 30分钟优先读哪些部分
 
 注意事项：
@@ -69,6 +73,8 @@ arXiv: **{{arxiv_id}}**
 - venue/journal_name 字段在 material["head"] 中，如果有值且不是 "arXiv.org"，说明论文已被顶会/期刊录用，一定要标出
 - GitHub 链接可能出现在 abstract、introduction 或 conclusion 中，如果找到请标注
 - 关键词应反映论文的核心技术贡献，不要照搬搜索 query
+- 第 8 节必须结合我的研究方向判断，不要只泛泛评价论文价值
+- "如何指导我发新的论文" 要输出可执行的论文切入点，例如可复用的问题定义、实验范式、baseline/benchmark、方法模块、负结果启示、可补的 ablation、可扩展的数据或场景
 
 论文材料：
 {json.dumps(material, ensure_ascii=False, indent=2)[:120000]}

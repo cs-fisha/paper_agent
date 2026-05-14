@@ -24,7 +24,7 @@ class ReportGenerator:
 
         Args:
             materials: List of paper material dictionaries
-            query: Search query
+            query: Research focus
 
         Returns:
             Generated report content
@@ -47,7 +47,7 @@ class ReportGenerator:
         prompt = f"""
 基于论文材料生成调研报告（中文 Markdown）。
 
-搜索查询：{query}
+我的研究方向：{query}
 论文数量：{len(materials)}
 
 # 调研报告：{query}
@@ -68,7 +68,7 @@ class ReportGenerator:
 可能的研究空白或改进方向
 
 ## 6. 对我的科研方向的启发
-结合 {query} 的研究视角
+结合 {query} 的研究视角，给出可执行的新论文切入点、可复用实验设计、推荐优先跟进的论文组合
 
 论文摘要：
 {json.dumps(summaries, ensure_ascii=False, indent=2)[:80000]}

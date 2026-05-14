@@ -42,12 +42,19 @@ class SearchConfig:
     limit: int = 5
     date_from: str = "2025-06-01"
     categories: List[str] = field(default_factory=lambda: ["cs.CV", "cs.CL"])
+    arxiv_ids_file: Optional[Path] = None
 
     def __post_init__(self):
         if self.limit < 1:
             raise ValueError("LIMIT must be at least 1")
         if self.limit > 100:
             raise ValueError("LIMIT should not exceed 100")
+
+
+@dataclass
+class ResearchConfig:
+    """User research focus for relevance and paper-idea analysis."""
+    focus: str = ""
 
 
 @dataclass
@@ -73,6 +80,7 @@ class Config:
     openai: OpenAIConfig
     deepxiv: DeepXivConfig
     search: SearchConfig
+    research: ResearchConfig
     processing: ProcessingConfig
 
     @classmethod
@@ -93,6 +101,15 @@ class Config:
             limit=int(os.getenv("LIMIT", "5")),
             date_from=os.getenv("DATE_FROM", "2025-06-01"),
             categories=os.getenv("CATEGORIES", "cs.CV,cs.CL").split(","),
+            arxiv_ids_file=(
+                Path(os.getenv("ARXIV_IDS_FILE"))
+                if os.getenv("ARXIV_IDS_FILE")
+                else None
+            ),
+        )
+
+        research = ResearchConfig(
+            focus=os.getenv("RESEARCH_FOCUS", "").strip(),
         )
 
         processing = ProcessingConfig(
@@ -108,5 +125,6 @@ class Config:
             openai=openai,
             deepxiv=deepxiv,
             search=search,
+            research=research,
             processing=processing,
         )

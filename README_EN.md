@@ -7,6 +7,8 @@ LLM-powered paper reading assistant. Automatically searches arXiv papers, extrac
 ## Features
 
 - **Paper Search**: Search arXiv via DeepXiv API by keywords, categories, and date
+- **ID File Import**: Load arXiv IDs / URLs from a txt file and process the specified papers directly
+- **Research Focus**: Use `RESEARCH_FOCUS` for relevance, inspiration, and new-paper ideas
 - **Figure Extraction**: LaTeX source preferred (high quality), PDF as fallback
 - **Three-layer Notes**:
   - 10min Card — quick grasp of core contributions
@@ -40,7 +42,9 @@ MODEL_NAME=gpt-4
 DEEPXIV_TOKEN=your_token
 
 # Search
-QUERY="multimodal LVLM jailbreak"
+QUERY="multimodal LVLM jailbreak"       # Used only for keyword search
+RESEARCH_FOCUS="multimodal LVLM safety" # Used for relevance and new-paper ideas
+ARXIV_IDS_FILE=              # Optional: load IDs from txt and skip keyword search
 LIMIT=10
 DATE_FROM=2025-01-01
 CATEGORIES=cs.CV,cs.CL,cs.CR
@@ -53,6 +57,25 @@ USE_LATEX_SOURCE=true      # Prefer LaTeX source for figures
 ANALYZE_FIGURES=true       # Figure context analysis
 GENERATE_DEEP_NOTE=false   # 30min deep note (slower)
 ```
+
+### Process Papers From a txt File
+
+Create a txt file with mixed arXiv URLs and raw IDs:
+
+```text
+https://arxiv.org/abs/2605.08389
+2605.08389
+2605.08389v2
+https://arxiv.org/pdf/2605.08389.pdf
+```
+
+Then run:
+
+```bash
+python main.py --ids-file papers.txt
+```
+
+You can also set `ARXIV_IDS_FILE=papers.txt` in `.env` and run `python main.py`. When enabled, keyword search is skipped; every paper in the txt file is downloaded, parsed, and included in the final report. Relevance, inspiration, and new-paper ideas are judged against `RESEARCH_FOCUS`; if it is empty, `QUERY` is used as the fallback.
 
 ## Output Example
 

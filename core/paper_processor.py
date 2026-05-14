@@ -165,6 +165,7 @@ class PaperProcessor:
         try:
             # Fetch material
             material = self.get_paper_material(arxiv_id)
+            title = self._resolve_title(paper_info, material)
 
             # Download PDF
             pdf_path = None
@@ -256,6 +257,17 @@ class PaperProcessor:
             import traceback
             traceback.print_exc()
             return None
+
+    @staticmethod
+    def _resolve_title(paper_info: dict, material: dict) -> str:
+        """Resolve paper title, preferring fetched DeepXiv metadata."""
+        head = material.get("head", {})
+        if isinstance(head, dict):
+            title = head.get("title")
+            if title:
+                return title
+
+        return paper_info.get("title") or paper_info.get("arxiv_id") or paper_info.get("id") or "unknown_title"
 
     def _generate_card(self, material, query, figures, arxiv_id, title) -> Path:
         """Generate card in parallel."""

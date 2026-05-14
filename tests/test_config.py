@@ -2,7 +2,14 @@
 
 import pytest
 import os
-from core.config import OpenAIConfig, DeepXivConfig, SearchConfig, ProcessingConfig, Config
+from core.config import (
+    OpenAIConfig,
+    DeepXivConfig,
+    SearchConfig,
+    ResearchConfig,
+    ProcessingConfig,
+    Config,
+)
 
 
 class TestOpenAIConfig:
@@ -59,6 +66,7 @@ class TestSearchConfig:
         assert config.limit == 5
         assert config.date_from == "2025-06-01"
         assert config.categories == ["cs.CV", "cs.CL"]
+        assert config.arxiv_ids_file is None
 
     def test_custom_config(self):
         """Test with custom configuration."""
@@ -66,12 +74,22 @@ class TestSearchConfig:
             query="test query",
             limit=10,
             date_from="2024-01-01",
-            categories=["cs.AI"]
+            categories=["cs.AI"],
+            arxiv_ids_file=None,
         )
         assert config.query == "test query"
         assert config.limit == 10
         assert config.date_from == "2024-01-01"
         assert config.categories == ["cs.AI"]
+
+    def test_arxiv_ids_file(self, tmp_path):
+        """Test with arXiv IDs file."""
+        ids_file = tmp_path / "papers.txt"
+        ids_file.write_text("2605.08389\n", encoding="utf-8")
+
+        config = SearchConfig(arxiv_ids_file=ids_file)
+
+        assert config.arxiv_ids_file == ids_file
 
     def test_invalid_limit_too_low(self):
         """Test with limit too low."""
@@ -121,3 +139,17 @@ class TestProcessingConfig:
         """Test with max_workers too high."""
         with pytest.raises(ValueError, match="MAX_WORKERS should not exceed 32"):
             ProcessingConfig(max_workers=33)
+
+
+class TestResearchConfig:
+    """Test research focus configuration."""
+
+    def test_default_config(self):
+        """Test with default configuration."""
+        config = ResearchConfig()
+        assert config.focus == ""
+
+    def test_custom_config(self):
+        """Test with custom research focus."""
+        config = ResearchConfig(focus="multimodal LVLM jailbreak")
+        assert config.focus == "multimodal LVLM jailbreak"
