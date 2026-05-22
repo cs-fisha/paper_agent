@@ -7,6 +7,7 @@ LLM-powered paper reading assistant. Automatically searches arXiv papers, extrac
 ## Features
 
 - **Paper Search**: Search arXiv via DeepXiv API by keywords, categories, and date
+- **Conference Paper Search**: Scan local arXiv metadata snapshot to find papers explicitly accepted at top venues (CVPR, ICML, NeurIPS, ICLR, ACL, etc.)
 - **ID File Import**: Load arXiv IDs / URLs from a txt file and process the specified papers directly
 - **Research Focus**: Use `RESEARCH_FOCUS` for relevance, inspiration, and new-paper ideas
 - **Figure Extraction**: LaTeX source preferred (high quality), PDF as fallback
@@ -56,6 +57,9 @@ EXTRACT_FIGURES=true
 USE_LATEX_SOURCE=true      # Prefer LaTeX source for figures
 ANALYZE_FIGURES=true       # Figure context analysis
 GENERATE_DEEP_NOTE=false   # 30min deep note (slower)
+
+# Conference Search (tools/conference_search.py)
+ARXIV_METADATA_FILE=       # Local arXiv metadata snapshot path
 ```
 
 ### Process Papers From a txt File
@@ -76,6 +80,60 @@ python main.py --ids-file papers.txt
 ```
 
 You can also set `ARXIV_IDS_FILE=papers.txt` in `.env` and run `python main.py`. When enabled, keyword search is skipped; every paper in the txt file is downloaded, parsed, and included in the final report. Relevance, inspiration, and new-paper ideas are judged against `RESEARCH_FOCUS`; if it is empty, `QUERY` is used as the fallback.
+
+### Search Conference-Accepted arXiv Papers
+
+By default this does NOT call the arXiv official API. Instead it scans a local arXiv metadata snapshot (recommended: Kaggle/Cornell `arxiv-metadata-oai-snapshot.json`), hard-filters papers that explicitly state `accepted to/at/by` or `to appear at/in` a venue, then feeds the selected IDs into the existing workflow:
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --metadata-file /path/to/arxiv-metadata-oai-snapshot.json --top 50
+python tools/conference_search.py --venue ICML2026 --metadata-file /path/to/arxiv-metadata-oai-snapshot.json --top 200
+```
+
+You can also set in `.env`:
+
+```bash
+ARXIV_METADATA_FILE=/path/to/arxiv-metadata-oai-snapshot.json
+```
+
+Then simply run:
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --top 50
+```
+
+`--top` only controls how many papers enter the deep-read workflow, not the search scope. If you request `--top 200` but only 80 accepted papers are found, `papers_top.txt` will contain all 80. The full snapshot is scanned by default; use `--max-records 10000` for debugging. arXiv categories are unrestricted by default for better recall; narrow with `--categories cs.CV` or `--use-config-categories`. Workshop/challenge/competition papers are excluded by default; use `--include-workshops` to keep them.
+
+If you don't have a local snapshot, you can fall back to OpenAlex or web search for candidate discovery. These modes also avoid the arXiv official API but have lower reproducibility and recall:
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --backend openalex --top 50
+python tools/conference_search.py --venue CVPR2026 --backend web --search-pages 3 --delay-seconds 5
+```
+
+Output directory:
+
+```text
+outputs/conference_search/{VENUE}/
+├── accepted.jsonl      # All papers passing the hard filter
+├── rejected.jsonl      # Excluded candidates with reasons
+├── papers_all.txt      # All accepted arXiv IDs
+├── papers_top.txt      # IDs suggested for deep-read workflow
+├── trend_report.md     # Non-LLM topic overview from titles/abstracts
+└── search_log.json
+```
+
+After reviewing `papers_top.txt`, run:
+
+```bash
+python main.py --ids-file outputs/conference_search/CVPR2026/papers_top.txt
+```
+
+Or do search + workflow in one step:
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --top 50 --run-workflow
+```
 
 ## Output Example
 
@@ -137,20 +195,35 @@ In-depth analysis of method details, training data, model architecture, experime
 paper_agent/
 ├── core/
 │   ├── api_client.py        # OpenAI + DeepXiv API clients
+│   ├── arxiv_ids.py         # arXiv ID parsing
+│   ├── conference_search.py # Conference paper search core logic
 │   ├── config.py            # Configuration (loads from .env)
+│   ├── file_utils.py        # File utilities
+│   ├── latex_processor.py   # LaTeX download, figure & context extraction
+│   ├── logger.py            # Logging
 │   ├── paper_processor.py   # Main processing pipeline
 │   ├── pdf_processor.py     # PDF download & figure extraction
-│   ├── latex_processor.py   # LaTeX download, figure & context extraction
 │   ├── retry.py             # Retry decorator
 │   └── utils.py             # Utilities
 ├── generators/
 │   ├── card_generator.py    # 10min Card generation
+│   ├── figure_analyzer.py   # Figure context analysis
 │   ├── note_generator.py    # 30min Deep Note generation
-│   ├── report_generator.py  # Survey report generation
-│   └── figure_analyzer.py   # Figure context analysis
-├── tests/
-├── main.py
+│   └── report_generator.py  # Survey report generation
+├── tools/
+│   ├── conference_search.py         # Conference paper search CLI
+│   ├── multi_venue_sweep.py         # Multi-venue single-pass scan
+│   ├── filter_lvlm_papers.py        # LVLM/MLLM paper filter
+│   ├── merge_and_filter_lvlm.py     # Cross-venue merge & dedup
+│   ├── refresh_arxiv_snapshot.py    # Kaggle arXiv snapshot refresh
+│   ├── survey_synthesis.py          # LLM survey report
+│   └── survey_synthesis_detailed.py # Multi-phase detailed survey report
+├── configs/
+│   └── conferences.json     # Venue aliases, categories, exclusion terms
+├── tests/                   # Unit tests
+├── main.py                  # Entry point
 ├── requirements.txt
+├── papers.txt.example       # Example paper ID list
 └── .env.example
 ```
 

@@ -3,6 +3,9 @@
 .env.local
 *.env
 
+# Paper ID lists (user-specific research)
+papers.txt
+
 # Claude Code
 .claude/
 
@@ -46,6 +49,9 @@ env/
 outputs/
 logs/
 *.log
+
+# Large data files (arXiv metadata snapshots, etc.)
+data/
 
 # Temporary files
 *.tmp

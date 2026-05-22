@@ -7,6 +7,7 @@
 ## 功能
 
 - **论文搜索**：通过 DeepXiv API 按关键词、分类、日期搜索 arXiv 论文
+- **会议论文搜索**：扫描本地 arXiv 元数据快照，筛选明确标注被顶会录用的论文（CVPR、ICML、NeurIPS、ICLR、ACL 等）
 - **ID 文件导入**：从 txt 批量读取 arXiv ID / URL，跳过关键词搜索直接处理指定论文
 - **研究方向判断**：用独立的 `RESEARCH_FOCUS` 评估论文相关性、启发和新论文切入点
 - **图表提取**：优先从 LaTeX 源码提取高质量图片，PDF 作为 fallback
@@ -56,6 +57,9 @@ EXTRACT_FIGURES=true       # 提取图表
 USE_LATEX_SOURCE=true      # 优先 LaTeX 源码提取图片
 ANALYZE_FIGURES=true       # 图表上下文分析
 GENERATE_DEEP_NOTE=false   # 30min 深度笔记（耗时较长）
+
+# 会议论文搜索（tools/conference_search.py）
+ARXIV_METADATA_FILE=       # 本地 arXiv 元数据快照路径
 ```
 
 ### 从 txt 批量处理指定论文
@@ -76,6 +80,60 @@ python main.py --ids-file papers.txt
 ```
 
 也可以在 `.env` 中设置 `ARXIV_IDS_FILE=papers.txt` 后直接运行 `python main.py`。启用后会跳过关键词搜索，下载并解析 txt 中的所有论文，最后生成本批次的报告。论文相关性、对你的启发和新论文切入点会统一根据 `RESEARCH_FOCUS` 判断；如果 `RESEARCH_FOCUS` 留空，则默认使用 `QUERY`。
+
+### 搜索会议中稿 arXiv 论文并初筛
+
+默认不调用 arXiv 官方 API，而是扫描本地 arXiv metadata 快照（推荐使用 Kaggle/Cornell 的 `arxiv-metadata-oai-snapshot.json`），硬过滤明确写有 `accepted to/at/by` 或 `to appear at/in` 的会议论文，最后把精选 ID 接入现有工作流：
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --metadata-file /path/to/arxiv-metadata-oai-snapshot.json --top 50
+python tools/conference_search.py --venue ICML2026 --metadata-file /path/to/arxiv-metadata-oai-snapshot.json --top 200
+```
+
+也可以在 `.env` 里设置：
+
+```bash
+ARXIV_METADATA_FILE=/path/to/arxiv-metadata-oai-snapshot.json
+```
+
+之后直接运行：
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --top 50
+```
+
+`--top` 只控制后续精读数量，不限制搜索数量；如果请求 `--top 200` 但只找到 80 篇 accepted 论文，则 `papers_top.txt` 会包含全部 80 篇。默认扫描完整快照；调试时可用 `--max-records 10000` 限制扫描行数。默认不限制 arXiv category 以提高召回率；需要缩小范围时可加 `--categories cs.CV` 或 `--use-config-categories`。默认排除 workshop/challenge/competition，可用 `--include-workshops` 保留。
+
+如果没有本地快照，也可以临时切到 OpenAlex 或通用搜索引擎发现候选；这些模式同样不使用 arXiv 官方 API，但可复现性和召回率不如本地快照：
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --backend openalex --top 50
+python tools/conference_search.py --venue CVPR2026 --backend web --search-pages 3 --delay-seconds 5
+```
+
+输出目录：
+
+```text
+outputs/conference_search/{VENUE}/
+├── accepted.jsonl      # 全部通过硬过滤的 arXiv 元数据
+├── rejected.jsonl      # 被排除的候选及原因
+├── papers_all.txt      # 全部 accepted arXiv IDs
+├── papers_top.txt      # 建议进入精读流程的 arXiv IDs
+├── trend_report.md     # 基于标题/摘要的非 LLM 方向概览
+└── search_log.json
+```
+
+确认 `papers_top.txt` 后运行：
+
+```bash
+python main.py --ids-file outputs/conference_search/CVPR2026/papers_top.txt
+```
+
+也可以一步执行搜索后自动接工作流：
+
+```bash
+python tools/conference_search.py --venue CVPR2026 --top 50 --run-workflow
+```
 
 ## 输出示例
 
@@ -137,20 +195,35 @@ outputs/
 paper_agent/
 ├── core/
 │   ├── api_client.py        # OpenAI + DeepXiv API 客户端
+│   ├── arxiv_ids.py         # arXiv ID 解析
+│   ├── conference_search.py # 会议论文搜索核心逻辑
 │   ├── config.py            # 配置管理（从 .env 加载）
+│   ├── file_utils.py        # 文件工具
+│   ├── latex_processor.py   # LaTeX 源码下载、图片提取、上下文提取
+│   ├── logger.py            # 日志
 │   ├── paper_processor.py   # 论文处理主流程
 │   ├── pdf_processor.py     # PDF 下载与图片提取
-│   ├── latex_processor.py   # LaTeX 源码下载、图片提取、上下文提取
 │   ├── retry.py             # 重试装饰器
 │   └── utils.py             # 工具函数
 ├── generators/
 │   ├── card_generator.py    # 10min Card 生成
+│   ├── figure_analyzer.py   # 图表上下文分析
 │   ├── note_generator.py    # 30min Deep Note 生成
-│   ├── report_generator.py  # 调研报告生成
-│   └── figure_analyzer.py   # 图表上下文分析
+│   └── report_generator.py  # 调研报告生成
+├── tools/
+│   ├── conference_search.py         # 会议论文搜索 CLI
+│   ├── multi_venue_sweep.py         # 多会议一次扫描
+│   ├── filter_lvlm_papers.py        # LVLM/MLLM 论文过滤
+│   ├── merge_and_filter_lvlm.py     # 跨会议合并去重
+│   ├── refresh_arxiv_snapshot.py    # Kaggle arXiv 快照定时刷新
+│   ├── survey_synthesis.py          # LLM 综述报告
+│   └── survey_synthesis_detailed.py # 分阶段详细综述报告
+├── configs/
+│   └── conferences.json     # 会议别名、分类、排除词配置
 ├── tests/                   # 单元测试
 ├── main.py                  # 入口
 ├── requirements.txt
+├── papers.txt.example       # 论文 ID 列表示例
 └── .env.example
 ```
 
