@@ -169,10 +169,7 @@ def kaggle_download(logger: logging.Logger) -> Path:
         shutil.rmtree(TMP_DIR)
     TMP_DIR.mkdir(parents=True)
 
-    # Resolve kaggle CLI from the current conda/venv environment.
-    kaggle_bin = shutil.which("kaggle")
-    if not kaggle_bin:
-        kaggle_bin = "kaggle"
+    kaggle_bin = os.getenv("KAGGLE_BIN", "").strip() or shutil.which("kaggle") or "kaggle"
 
     cmd = [
         kaggle_bin,
@@ -275,11 +272,8 @@ def main() -> int:
 
         backup_path = atomic_swap(new_file, logger)
 
-        # Cleanup
+        # Cleanup temp dir; keep .bak as the single rolling backup.
         shutil.rmtree(TMP_DIR, ignore_errors=True)
-        if backup_path and backup_path.exists():
-            backup_path.unlink()
-            logger.info(f"Removed backup {backup_path}")
 
         after = file_stats(TARGET)
         elapsed = time.time() - start

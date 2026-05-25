@@ -135,6 +135,24 @@ Or do search + workflow in one step:
 python tools/conference_search.py --venue CVPR2026 --top 50 --run-workflow
 ```
 
+### Scheduled arXiv Snapshot Refresh (Optional)
+
+`tools/refresh_arxiv_snapshot.py` downloads the latest arXiv metadata snapshot via the Kaggle CLI. A weekly cron job is recommended:
+
+```bash
+# Example: every Monday at 03:17 (adjust Python path accordingly)
+17 3 * * 1 /path/to/python /path/to/paper_agent/tools/refresh_arxiv_snapshot.py >> /path/to/paper_agent/logs/refresh_arxiv_snapshot_cron.log 2>&1
+```
+
+Since cron's `PATH` typically doesn't include conda/venv directories, specify the absolute path to the kaggle CLI in `.env`:
+
+```bash
+# .env
+KAGGLE_BIN=/path/to/your/conda/envs/bin/kaggle
+```
+
+Find it by running `which kaggle` in your activated environment.
+
 ## Output Example
 
 ### Card Metadata Header

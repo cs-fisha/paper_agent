@@ -135,6 +135,24 @@ python main.py --ids-file outputs/conference_search/CVPR2026/papers_top.txt
 python tools/conference_search.py --venue CVPR2026 --top 50 --run-workflow
 ```
 
+### 定时刷新 arXiv 快照（可选）
+
+`tools/refresh_arxiv_snapshot.py` 通过 Kaggle CLI 下载最新的 arXiv 元数据快照。建议用 cron 每周执行一次：
+
+```bash
+# 示例：每周一 03:17 刷新（根据实际 Python 路径修改）
+17 3 * * 1 /path/to/python /path/to/paper_agent/tools/refresh_arxiv_snapshot.py >> /path/to/paper_agent/logs/refresh_arxiv_snapshot_cron.log 2>&1
+```
+
+cron 环境的 `PATH` 通常不包含 conda/venv 路径，需要在 `.env` 中指定 kaggle CLI 的绝对路径：
+
+```bash
+# .env
+KAGGLE_BIN=/path/to/your/conda/envs/bin/kaggle
+```
+
+获取方式：在激活了 kaggle 的环境中运行 `which kaggle`。
+
 ## 输出示例
 
 ### Card 元数据头部
