@@ -7,7 +7,7 @@
       "Computer Vision and Pattern Recognition 2026"
     ],
     "categories": ["cs.CV", "cs.AI", "cs.LG", "cs.RO"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "ICML2026": {
@@ -17,7 +17,7 @@
       "International Conference on Machine Learning 2026"
     ],
     "categories": ["cs.LG", "cs.AI", "cs.CL", "stat.ML", "cs.CV"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "NeurIPS2026": {
@@ -28,7 +28,7 @@
       "Conference on Neural Information Processing Systems 2026"
     ],
     "categories": ["cs.LG", "cs.AI", "cs.CL", "cs.CV", "stat.ML"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "ICLR2026": {
@@ -38,7 +38,7 @@
       "International Conference on Learning Representations 2026"
     ],
     "categories": ["cs.LG", "cs.AI", "cs.CL", "cs.CV", "stat.ML"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "ACL2026": {
@@ -48,7 +48,7 @@
       "Annual Meeting of the Association for Computational Linguistics 2026"
     ],
     "categories": ["cs.CL", "cs.AI", "cs.LG"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "ACMMM2026": {
@@ -60,7 +60,7 @@
       "ACM International Conference on Multimedia 2026"
     ],
     "categories": ["cs.MM", "cs.CV", "cs.CL", "cs.AI", "cs.LG", "cs.SD", "eess.AS"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "AAAI2026": {
@@ -73,7 +73,7 @@
       "Fortieth AAAI Conference on Artificial Intelligence"
     ],
     "categories": ["cs.AI", "cs.CV", "cs.CL", "cs.LG", "cs.MM", "cs.CR"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   },
   "EMNLP2026": {
@@ -83,7 +83,7 @@
       "Conference on Empirical Methods in Natural Language Processing 2026"
     ],
     "categories": ["cs.CL", "cs.AI", "cs.LG"],
-    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "in conjunction with"],
+    "exclude": ["workshop", "challenge", "competition", "shared task", "tutorial", "demo track", "system demonstration", "industry track", "findings", "student abstract", "doctoral consortium", "tiny papers", "in conjunction with"],
     "date_from": "2025-01-01"
   }
 }

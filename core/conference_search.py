@@ -89,6 +89,12 @@ DEFAULT_EXCLUDE_TERMS = [
     "shared task",
     "tutorial",
     "demo track",
+    "system demonstration",
+    "industry track",
+    "findings",
+    "student abstract",
+    "doctoral consortium",
+    "tiny papers",
     "in conjunction with",
 ]
 
