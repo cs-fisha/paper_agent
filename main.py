@@ -11,6 +11,7 @@ from tqdm import tqdm
 from core.config import Config
 from core.logger import setup_logger, get_logger
 from core.api_client import OpenAIClient, DeepXivClient
+from core.arxiv_html_fetcher import ArxivHTMLFetcher
 from core.arxiv_ids import load_arxiv_ids_file
 from core.paper_processor import PaperProcessor
 from core.file_utils import safe_filename
@@ -86,7 +87,8 @@ def main():
 
     # Initialize clients
     openai_client = OpenAIClient(config.openai)
-    deepxiv_client = DeepXivClient(config.deepxiv)
+    arxiv_fallback = ArxivHTMLFetcher()
+    deepxiv_client = DeepXivClient(config.deepxiv, fallback=arxiv_fallback)
 
     # Initialize generators
     card_gen = CardGenerator(openai_client, card_dir)

@@ -3,7 +3,9 @@
 from typing import Optional
 from openai import OpenAI
 from deepxiv_sdk import Reader
+from deepxiv_sdk.reader import NotFoundError
 from core.config import OpenAIConfig, DeepXivConfig
+from core.arxiv_html_fetcher import ArxivHTMLFetcher
 from core.retry import retry_on_exception
 from core.logger import get_logger
 
@@ -57,12 +59,13 @@ class OpenAIClient:
 
 
 class DeepXivClient:
-    """Wrapper for DeepXiv API with retry logic."""
+    """Wrapper for DeepXiv API with retry logic and arxiv HTML fallback."""
 
-    def __init__(self, config: DeepXivConfig):
+    def __init__(self, config: DeepXivConfig, fallback: Optional[ArxivHTMLFetcher] = None):
         self.config = config
         self.reader = Reader(token=config.token)
-        logger.info("Initialized DeepXiv client")
+        self.fallback = fallback
+        logger.info("Initialized DeepXiv client" + (" (with HTML fallback)" if fallback else ""))
 
     @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def search(
@@ -106,18 +109,36 @@ class DeepXivClient:
 
     @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def brief(self, arxiv_id: str) -> dict:
-        """Get paper brief with retry logic."""
+        """Get paper brief with retry logic. Falls back to arxiv HTML on NotFoundError."""
         logger.debug(f"Fetching brief for {arxiv_id}")
-        return self.reader.brief(arxiv_id)
+        try:
+            return self.reader.brief(arxiv_id)
+        except NotFoundError:
+            if self.fallback:
+                logger.info(f"DeepXiv 404 for {arxiv_id}, using arxiv HTML fallback")
+                return self.fallback.fetch_brief(arxiv_id)
+            raise
 
     @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def head(self, arxiv_id: str) -> dict:
-        """Get paper head with retry logic."""
+        """Get paper head with retry logic. Falls back to arxiv HTML on NotFoundError."""
         logger.debug(f"Fetching head for {arxiv_id}")
-        return self.reader.head(arxiv_id)
+        try:
+            return self.reader.head(arxiv_id)
+        except NotFoundError:
+            if self.fallback:
+                logger.info(f"DeepXiv 404 for {arxiv_id}, using arxiv HTML fallback")
+                return self.fallback.fetch_head(arxiv_id)
+            raise
 
     @retry_on_exception(max_attempts=3, delay=60.0, backoff=2.0)
     def section(self, arxiv_id: str, section_name: str) -> str:
-        """Get paper section with retry logic."""
+        """Get paper section with retry logic. Falls back to arxiv HTML on NotFoundError."""
         logger.debug(f"Fetching section '{section_name}' for {arxiv_id}")
-        return self.reader.section(arxiv_id, section_name)
+        try:
+            return self.reader.section(arxiv_id, section_name)
+        except NotFoundError:
+            if self.fallback:
+                logger.info(f"DeepXiv 404 for section '{section_name}' of {arxiv_id}, using arxiv HTML fallback")
+                return self.fallback.fetch_section(arxiv_id, section_name)
+            raise
