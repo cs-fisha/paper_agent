@@ -93,7 +93,7 @@ def main() -> int:
             scored.append(row)
 
     scored.sort(key=lambda r: (r["lvlm_score"], r.get("updated", "")), reverse=True)
-    selected = scored[: args.top]
+    selected = scored[: args.top] if args.top > 0 else scored
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     with (args.out_dir / "combined_accepted.jsonl").open("w", encoding="utf-8") as f:
