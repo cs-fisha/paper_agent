@@ -1,6 +1,6 @@
 """API clients for OpenAI and DeepXiv."""
 
-from typing import Optional
+from typing import Optional, List
 from openai import OpenAI
 from deepxiv_sdk import Reader
 from deepxiv_sdk.reader import NotFoundError
@@ -56,6 +56,12 @@ class OpenAIClient:
         logger.debug(f"LLM response length: {len(result)}")
 
         return result
+
+    @retry_on_exception(max_attempts=3, delay=30.0, backoff=2.0)
+    def get_embeddings(self, texts: List[str], model: str = "text-embedding-3-large") -> List[List[float]]:
+        """Get embeddings for a batch of texts (max 2048 per call)."""
+        response = self.client.embeddings.create(model=model, input=texts)
+        return [item.embedding for item in response.data]
 
 
 class DeepXivClient:

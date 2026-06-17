@@ -33,8 +33,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.api_client import OpenAIClient  # noqa: E402
+import random  # noqa: E402 (used for clustering shuffle)
+import numpy as np  # noqa: E402
+from sklearn.cluster import KMeans  # noqa: E402
 from core.config import Config  # noqa: E402
+from core.api_client import OpenAIClient  # noqa: E402
 from core.logger import setup_logger, get_logger  # noqa: E402
 
 
@@ -76,10 +79,10 @@ CLUSTERING_SYSTEM = (
 
 CLUSTERING_PROMPT = """\
 下面是 {num_papers} 篇 2026 年顶会 LVLM/MLLM 论文的结构化亮点摘要。
-请将它们聚类为 **7-9 个** 研究主题（cluster）。
+请将它们聚类为 **{theme_range}** 研究主题（cluster）。
 
 聚类要求：
-- 主题粒度适中：每个主题应该有 8-25 篇论文。避免太粗（如"多模态"）或太细（如"某个具体数据集"）。
+- 主题粒度适中：每个主题应该有 {per_theme_range} 篇论文。避免太粗（如"多模态"）或太细（如"某个具体数据集"）。
 - 主题名简短（2-8 字中文）。
 - 一篇论文应**主要分配到 1 个主题**，跨主题论文最多出现在 2 个主题里。
 - 按论文数量从多到少排列。
@@ -110,7 +113,7 @@ THEME_SYSTEM = (
 )
 
 THEME_PROMPT = """\
-现在请你深度分析一个主题，目标长度 **2200-3500 字**（不含标题与空行）。
+现在请你深度分析一个主题，目标长度 **1500-2500 字**（不含标题与空行）。
 
 主题名：{theme_name}
 主题描述：{theme_desc}
@@ -162,7 +165,7 @@ CROSSCUT_HARD_PROBLEMS_PROMPT = """\
 
 {slim_highlights_json}
 
-请撰写一节《跨方向的共性难题》（目标 2500-4000 字），结构如下：
+请撰写一节《跨方向的共性难题》（目标 1800-2800 字），结构如下：
 
 ## N. 跨方向的共性难题
 
@@ -188,7 +191,7 @@ CROSSCUT_NOVELTY_PROMPT = """\
 
 {slim_highlights_json}
 
-请撰写一节《特别值得关注的新颖工作》（目标 2000-3000 字），结构如下：
+请撰写一节《特别值得关注的新颖工作》（目标 1500-2500 字），结构如下：
 
 ## N. 特别值得关注的新颖工作
 
@@ -213,7 +216,7 @@ CROSSCUT_ADVICE_PROMPT = """\
 
 {slim_highlights_json}
 
-请撰写一节《选题建议与趋势判断》（目标 2000-3000 字），面向正在找选题的研究生：
+请撰写一节《选题建议与趋势判断》（目标 1500-2500 字），面向正在找选题的研究生：
 
 ## N. 选题建议与趋势判断
 
@@ -368,18 +371,90 @@ def ultra_slim_highlights(highlights: List[Dict]) -> List[Dict]:
 
 
 def cluster_papers(client: OpenAIClient, highlights: List[Dict], logger) -> List[Dict]:
-    ultra = ultra_slim_highlights(highlights)
-    prompt = CLUSTERING_PROMPT.format(
-        num_papers=len(ultra),
-        slim_highlights_json=json.dumps(ultra, ensure_ascii=False, indent=1),
+    n = len(highlights)
+    if n <= 120:
+        k = 8
+    elif n <= 300:
+        k = 9
+    else:
+        k = 10
+
+    # Build embedding texts: title + problem + core method
+    texts = []
+    for h in highlights:
+        parts = [
+            (h.get("title") or "").strip(),
+            (h.get("想解决的问题") or "").strip(),
+            (h.get("核心方法一句话") or "").strip(),
+        ]
+        texts.append(" | ".join(p for p in parts if p))
+
+    # Get embeddings in batches of 512
+    logger.info(f"Getting embeddings for {n} papers...")
+    all_embeddings = []
+    batch_size = 512
+    for i in range(0, n, batch_size):
+        batch = texts[i : i + batch_size]
+        embs = client.get_embeddings(batch)
+        all_embeddings.extend(embs)
+        if i + batch_size < n:
+            logger.info(f"  embeddings: {i + len(batch)}/{n}")
+
+    X = np.array(all_embeddings)
+    logger.info(f"Running KMeans (k={k}) on {X.shape} matrix...")
+    km = KMeans(n_clusters=k, random_state=42, n_init=10)
+    labels = km.fit_predict(X)
+
+    # Group papers by cluster
+    clusters: Dict[int, List[str]] = {}
+    for idx, label in enumerate(labels):
+        clusters.setdefault(int(label), []).append(highlights[idx]["arxiv_id"])
+
+    # Sort clusters by size (largest first)
+    sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
+
+    # Ask LLM to name each cluster based on its papers
+    cluster_summaries = []
+    for cluster_id, paper_ids in sorted_clusters:
+        sample_papers = []
+        for pid in paper_ids[:15]:
+            h = next((x for x in highlights if x["arxiv_id"] == pid), None)
+            if h:
+                sample_papers.append(
+                    f"- {h.get('title', '')}: {h.get('想解决的问题', '')}"
+                )
+        cluster_summaries.append({
+            "paper_count": len(paper_ids),
+            "sample": "\n".join(sample_papers),
+            "paper_ids": paper_ids,
+        })
+
+    naming_prompt = "下面是通过 embedding 聚类得到的论文分组，请为每组起一个简短的中文主题名（2-8字）并写一句话描述。\n\n"
+    for i, cs in enumerate(cluster_summaries):
+        naming_prompt += f"### 组 {i+1}（{cs['paper_count']} 篇）\n{cs['sample']}\n\n"
+    naming_prompt += (
+        "输出严格 JSON 数组（不加 ```），按输入顺序：\n"
+        '[{"theme": "<主题名>", "description": "<一句话描述>"},...]\n'
     )
-    logger.info(f"Clustering {len(ultra)} papers into themes (prompt {len(prompt)} chars)...")
-    raw = client.call_llm(prompt, system_prompt=CLUSTERING_SYSTEM)
-    parsed = parse_json_blob(raw)
-    if not isinstance(parsed, list):
-        logger.error(f"Cluster output is not a list: {raw[:400]}")
-        raise RuntimeError("Clustering failed: not a JSON list")
-    return parsed
+
+    logger.info(f"Naming {k} clusters via LLM (prompt {len(naming_prompt)} chars)...")
+    raw = client.call_llm(naming_prompt, system_prompt=CLUSTERING_SYSTEM)
+    names = parse_json_blob(raw)
+    if not isinstance(names, list) or len(names) < len(sorted_clusters):
+        logger.warning(f"Naming returned {len(names) if names else 0} items, expected {len(sorted_clusters)}")
+        names = names or []
+        while len(names) < len(sorted_clusters):
+            names.append({"theme": f"主题{len(names)+1}", "description": ""})
+
+    themes = []
+    for i, (cluster_id, paper_ids) in enumerate(sorted_clusters):
+        themes.append({
+            "theme": names[i]["theme"],
+            "description": names[i].get("description", ""),
+            "paper_ids": paper_ids,
+        })
+
+    return themes
 
 
 def themes_summary_text(themes: List[Dict]) -> str:
@@ -427,14 +502,16 @@ def render_crosscut_section(
     highlights: List[Dict],
     section_label: str,
     logger,
+    max_papers: int = 200,
 ) -> str:
-    slim = slim_highlights(highlights)
+    subset = highlights[:max_papers] if len(highlights) > max_papers else highlights
+    slim = slim_highlights(subset)
     prompt = prompt_template.format(
         num_papers=len(slim),
         slim_highlights_json=json.dumps(slim, ensure_ascii=False, indent=1),
     )
     t0 = time.time()
-    logger.info(f"  [{section_label}] prompt {len(prompt)} chars, calling LLM...")
+    logger.info(f"  [{section_label}] {len(subset)}/{len(highlights)} papers, prompt {len(prompt)} chars, calling LLM...")
     text = client.call_llm(prompt, system_prompt=CROSSCUT_SYSTEM)
     logger.info(f"  [{section_label}] done in {time.time()-t0:.1f}s ({len(text)} chars)")
     return text.strip()
@@ -468,9 +545,9 @@ def fix_section_numbering(text: str, target_idx: int) -> str:
                 lines[i] = f"## {target_idx}. " + line[3:].lstrip()
             break
     text = "\n".join(lines)
-    # Renumber subheadings ### N.x → ### {target_idx}.x
+    # Renumber subheadings ### N.x or ### <digit>.x → ### {target_idx}.x
     text = re.sub(
-        r"(?m)^###\s+\d+\.(\d+)",
+        r"(?m)^###\s+(?:N|\d+)\.(\d+)",
         lambda m: f"### {target_idx}.{m.group(1)}",
         text,
     )
@@ -516,6 +593,12 @@ def main() -> None:
         "--reuse-themes",
         action="store_true",
         help="If themes-cache exists, skip the clustering LLM call and reuse it.",
+    )
+    parser.add_argument(
+        "--max-crosscut-papers",
+        type=int,
+        default=200,
+        help="Max papers fed to cross-cutting prompts (top by score). Prevents 524 timeout.",
     )
     parser.add_argument(
         "--combined-accepted",
@@ -642,6 +725,7 @@ def main() -> None:
                 highlights,
                 label,
                 logger,
+                args.max_crosscut_papers,
             ): label
             for label, template, _ in crosscut_specs
         }
