@@ -36,6 +36,17 @@ STRONG_TERMS = [
     "multimodal language model",
     "video-language model",
     "vision-language reasoning",
+    # LLM Agent terms
+    "llm agent",
+    "llm-based agent",
+    "language model agent",
+    "language agent",
+    "multimodal agent",
+    "tool-augmented llm",
+    "agentic llm",
+    "multi-agent llm",
+    "autonomous agent",
+    "agent framework",
 ]
 
 # Weaker signals — count only if at least one STRONG term already matched, to
@@ -49,6 +60,14 @@ WEAK_TERMS = [
     "image-text",
     "image text",
     "vlm",
+    # LLM Agent weak signals
+    "agent",
+    "tool calling",
+    "function calling",
+    "web agent",
+    "gui agent",
+    "code agent",
+    "reasoning agent",
 ]
 
 
